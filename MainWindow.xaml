@@ -104,10 +104,17 @@
                                   SelectionChanged="SourceLanguageCombo_OnSelectionChanged" />
                         <TextBlock x:Name="TargetLanguageLabel" Text="Target language" Foreground="#5B6472" />
                         <TextBox x:Name="TargetLanguageBox" Margin="0,4,0,12" />
+                        <TextBlock x:Name="OcrEngineLabel" Text="OCR engine" Foreground="#5B6472" />
+                        <ComboBox x:Name="OcrEngineCombo"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Engine"
+                                  Margin="0,4,0,8" />
                         <TextBlock x:Name="TesseractPathLabel" Text="Tesseract path" Foreground="#5B6472" />
                         <TextBox x:Name="TesseractPathBox" Margin="0,4,0,8" />
                         <TextBlock x:Name="OcrLanguagesLabel" Text="OCR languages" Foreground="#5B6472" />
-                        <TextBox x:Name="OcrLanguagesBox" Margin="0,4,0,12" />
+                        <TextBox x:Name="OcrLanguagesBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="PaddleOcrEndpointLabel" Text="PaddleOCR endpoint" Foreground="#5B6472" />
+                        <TextBox x:Name="PaddleOcrEndpointBox" Margin="0,4,0,12" />
 
                         <TextBlock x:Name="HotkeysHeading" Text="Hotkeys" FontWeight="SemiBold" Margin="0,8,0,8" />
                         <ItemsControl x:Name="HotkeyList">

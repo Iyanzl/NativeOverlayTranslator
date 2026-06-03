@@ -9,9 +9,11 @@ public sealed class AppSettings
     public string Model { get; set; } = "gemma-4-31B";
     public string SourceLanguage { get; set; } = "auto";
     public string TargetLanguage { get; set; } = "Chinese";
+    public OcrEngineKind OcrEngine { get; set; } = OcrEngineKind.Tesseract;
     public string TesseractPath { get; set; } = @"D:\Program Files\Tesseract-OCR\tesseract.exe";
     public string OcrLanguages { get; set; } = "jpn+eng+chi_sim";
     public int OcrPageSegmentationMode { get; set; } = 11;
+    public string PaddleOcrEndpoint { get; set; } = "http://127.0.0.1:8868/ocr";
     public string? LocalTranslationModelPath { get; set; }
     public string? LocalVisionModelPath { get; set; }
     public bool ClipboardDoubleCopyEnabled { get; set; } = true;

@@ -16,7 +16,7 @@ public partial class ImageTranslationWindow : Window
     private const double ChromeHeightEstimate = 96;
     private const double WindowPaddingEstimate = 36;
     private readonly string _imagePath;
-    private readonly TesseractOcrService _ocrService;
+    private readonly ITextCaptureService _ocrService;
     private readonly ITranslationService _translationService;
     private readonly TranslationMemoryStore _memoryStore;
     private readonly AppSettings _settings;
@@ -24,7 +24,7 @@ public partial class ImageTranslationWindow : Window
 
     public ImageTranslationWindow(
         string imagePath,
-        TesseractOcrService ocrService,
+        ITextCaptureService ocrService,
         ITranslationService translationService,
         TranslationMemoryStore memoryStore,
         AppSettings settings)

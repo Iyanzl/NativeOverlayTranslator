@@ -22,7 +22,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _hoverTimer;
     private readonly DispatcherTimer _overlayFollowTimer;
     private readonly LocalizationService _localizer;
-    private TesseractOcrService _ocrService;
+    private ITextCaptureService _ocrService;
     private AppSettings _settings;
     private ITranslationService _translator;
     private HotkeyService? _hotkeys;
@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private Rect _pendingHoverBounds;
     private int _pendingHoverStableCount;
     private bool _hoverSuspended;
+    private System.Drawing.Point? _hoverCandidatePoint;
+    private DateTimeOffset _hoverCandidateSince;
     private CancellationTokenSource? _ocrCts;
     private bool _fullOcrRunning;
 
@@ -52,7 +54,7 @@ public partial class MainWindow : Window
         _settings = _settingsStore.LoadSettings();
         _localizer = new LocalizationService(_settings.UiLanguage);
         _translator = new OpenAiCompatibleTranslationService(_settings);
-        _ocrService = new TesseractOcrService(_settings);
+        _ocrService = CreateOcrService();
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
         _hoverTimer.Tick += HoverTimer_OnTick;
         _overlayFollowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
@@ -74,8 +76,11 @@ public partial class MainWindow : Window
         SourceLanguageCombo.SelectedValue = NormalizeSourceLanguage(_settings.SourceLanguage);
         TargetLanguageBox.Text = _settings.TargetLanguage;
         _settings.OcrLanguages = GetOcrLanguagesForSource(NormalizeSourceLanguage(_settings.SourceLanguage));
+        OcrEngineCombo.ItemsSource = GetOcrEngineOptions();
+        OcrEngineCombo.SelectedValue = _settings.OcrEngine;
         TesseractPathBox.Text = _settings.TesseractPath;
         OcrLanguagesBox.Text = _settings.OcrLanguages;
+        PaddleOcrEndpointBox.Text = _settings.PaddleOcrEndpoint;
         ClipboardToggle.IsChecked = _settings.ClipboardDoubleCopyEnabled;
         ClipboardDisplaySecondsBox.Text = ClampSeconds(_settings.ClipboardDisplaySeconds, 6).ToString("0.##");
         HoverToggle.IsChecked = _settings.HoverTranslateEnabled;
@@ -222,7 +227,7 @@ public partial class MainWindow : Window
 
         var window = new ImageTranslationWindow(
             imagePath,
-            new TesseractOcrService(_settings),
+            CreateOcrService(),
             _translator,
             _memoryStore,
             _settings)
@@ -270,7 +275,7 @@ public partial class MainWindow : Window
         Diagnostics.Log($"ScreenshotTranslate region={FormatRect(region)} path='{imagePath}' bytes={imageLength}");
         var window = new ImageTranslationWindow(
             imagePath,
-            new TesseractOcrService(_settings),
+            CreateOcrService(),
             _translator,
             _memoryStore,
             _settings)
@@ -494,6 +499,11 @@ public partial class MainWindow : Window
 
         CleanupExpiredHoverOverlays();
         var point = Forms.Cursor.Position;
+        if (ShouldSkipInteractiveHover(point))
+        {
+            return;
+        }
+
         if (HasActiveHoverOverlayNear(point))
         {
             return;
@@ -751,6 +761,99 @@ public partial class MainWindow : Window
 
         var quietPeriod = GetHoverDisplayDurationForSettings(_settings.HoverMode) + TimeSpan.FromMilliseconds(250);
         return DateTimeOffset.Now - _lastHoverAt < quietPeriod;
+    }
+
+    private bool ShouldSkipInteractiveHover(System.Drawing.Point point)
+    {
+        if (IsAnyMouseButtonDown())
+        {
+            ResetHoverCandidate(point);
+            return true;
+        }
+
+        if (!IsSelectedTargetForeground())
+        {
+            ResetHoverCandidate(point);
+            return true;
+        }
+
+        if (MillisecondsSinceLastInput() < GetHoverInputQuietMilliseconds(_settings.HoverMode))
+        {
+            ResetHoverCandidate(point);
+            return true;
+        }
+
+        if (_hoverCandidatePoint is not { } candidate ||
+            Math.Abs(point.X - candidate.X) > 5 ||
+            Math.Abs(point.Y - candidate.Y) > 5)
+        {
+            ResetHoverCandidate(point);
+            return true;
+        }
+
+        return DateTimeOffset.Now - _hoverCandidateSince < GetHoverPointerStableDuration(_settings.HoverMode);
+    }
+
+    private void ResetHoverCandidate(System.Drawing.Point point)
+    {
+        _hoverCandidatePoint = point;
+        _hoverCandidateSince = DateTimeOffset.Now;
+    }
+
+    private static bool IsAnyMouseButtonDown()
+    {
+        const int vkLButton = 0x01;
+        const int vkRButton = 0x02;
+        const int vkMButton = 0x04;
+        const int vkXButton1 = 0x05;
+        const int vkXButton2 = 0x06;
+        return IsKeyDown(vkLButton) ||
+               IsKeyDown(vkRButton) ||
+               IsKeyDown(vkMButton) ||
+               IsKeyDown(vkXButton1) ||
+               IsKeyDown(vkXButton2);
+    }
+
+    private static bool IsKeyDown(int virtualKey)
+    {
+        return (NativeMethods.GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+    }
+
+    private static uint MillisecondsSinceLastInput()
+    {
+        var info = new NativeMethods.LASTINPUTINFO
+        {
+            cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.LASTINPUTINFO>()
+        };
+
+        if (!NativeMethods.GetLastInputInfo(ref info))
+        {
+            return uint.MaxValue;
+        }
+
+        return unchecked((uint)Environment.TickCount - info.dwTime);
+    }
+
+    private static TimeSpan GetHoverPointerStableDuration(HoverMode mode)
+    {
+        return TimeSpan.FromMilliseconds(mode switch
+        {
+            HoverMode.Word => 650,
+            HoverMode.Phrase => 850,
+            HoverMode.Sentence => 1100,
+            _ => 850
+        });
+    }
+
+    private static uint GetHoverInputQuietMilliseconds(HoverMode mode)
+    {
+        return mode switch
+        {
+            HoverMode.Word => 450,
+            HoverMode.Phrase => 700,
+            HoverMode.Sentence => 900,
+            _ => 700
+        };
     }
 
     private bool HasActiveHoverOverlayNear(System.Drawing.Point point)
@@ -1375,7 +1478,9 @@ public partial class MainWindow : Window
         _settings.ApiKey = ApiKeyBox.Password;
         _settings.SourceLanguage = SourceLanguageCombo.SelectedValue as string ?? "auto";
         _settings.TargetLanguage = TargetLanguageBox.Text.Trim();
+        _settings.OcrEngine = OcrEngineCombo.SelectedValue is OcrEngineKind engine ? engine : OcrEngineKind.Tesseract;
         _settings.TesseractPath = TesseractPathBox.Text.Trim();
+        _settings.PaddleOcrEndpoint = PaddleOcrEndpointBox.Text.Trim();
         _settings.OcrLanguages = GetOcrLanguagesForSource(_settings.SourceLanguage);
         _settings.OcrPageSegmentationMode = GetPsmForSource(_settings.SourceLanguage);
         OcrLanguagesBox.Text = _settings.OcrLanguages;
@@ -1387,7 +1492,7 @@ public partial class MainWindow : Window
         SaveHotkeyEditors();
         _settingsStore.SaveSettings(_settings);
         _translator = new OpenAiCompatibleTranslationService(_settings);
-        _ocrService = new TesseractOcrService(_settings);
+        _ocrService = CreateOcrService();
         ApplyLocalization();
 
         if (_hotkeys is not null)
@@ -1726,8 +1831,10 @@ public partial class MainWindow : Window
         ApiKeyLabel.Text = _localizer.T("ApiKey");
         SourceLanguageLabel.Text = _localizer.T("SourceLanguage");
         TargetLanguageLabel.Text = _localizer.T("TargetLanguage");
+        OcrEngineLabel.Text = _localizer.T("OcrEngine");
         TesseractPathLabel.Text = _localizer.T("TesseractPath");
         OcrLanguagesLabel.Text = _localizer.T("OcrLanguages");
+        PaddleOcrEndpointLabel.Text = _localizer.T("PaddleOcrEndpoint");
         HotkeysHeading.Text = _localizer.T("Hotkeys");
         HotkeyHelpText.Text = _localizer.T("HotkeyHelp");
         SaveSettingsButton.Content = _localizer.T("SaveSettings");
@@ -1824,6 +1931,26 @@ public partial class MainWindow : Window
         };
     }
 
+    private ITextCaptureService CreateOcrService()
+    {
+        return _settings.OcrEngine switch
+        {
+            OcrEngineKind.PaddleOcr => new FallbackTextCaptureService(
+                new PaddleOcrService(_settings),
+                new TesseractOcrService(_settings)),
+            _ => new TesseractOcrService(_settings)
+        };
+    }
+
+    private IReadOnlyList<OcrEngineOption> GetOcrEngineOptions()
+    {
+        return
+        [
+            new OcrEngineOption(OcrEngineKind.Tesseract, "Tesseract OCR"),
+            new OcrEngineOption(OcrEngineKind.PaddleOcr, "PaddleOCR")
+        ];
+    }
+
     private static int GetPsmForSource(string sourceLanguage)
     {
         return NormalizeSourceLanguage(sourceLanguage) switch
@@ -1842,6 +1969,8 @@ public partial class MainWindow : Window
             new HoverModeOption(HoverMode.Sentence, _localizer.T("HoverSentence"))
         ];
     }
+
+    private sealed record OcrEngineOption(OcrEngineKind Engine, string Name);
 
     private sealed class HoverOverlayState(OverlayWindow window, DateTimeOffset expiresAt)
     {
