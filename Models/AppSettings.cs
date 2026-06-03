@@ -14,6 +14,8 @@ public sealed class AppSettings
     public string OcrLanguages { get; set; } = "jpn+eng+chi_sim";
     public int OcrPageSegmentationMode { get; set; } = 11;
     public string PaddleOcrEndpoint { get; set; } = "http://127.0.0.1:8868/ocr";
+    public string RapidOcrEndpoint { get; set; } = "http://127.0.0.1:8869/ocr";
+    public string MangaOcrEndpoint { get; set; } = "http://127.0.0.1:8870/ocr";
     public string? LocalTranslationModelPath { get; set; }
     public string? LocalVisionModelPath { get; set; }
     public bool ClipboardDoubleCopyEnabled { get; set; } = true;
@@ -43,6 +45,21 @@ public sealed class AppSettings
         if (OcrPageSegmentationMode == 0)
         {
             OcrPageSegmentationMode = 11;
+        }
+
+        if (string.IsNullOrWhiteSpace(PaddleOcrEndpoint))
+        {
+            PaddleOcrEndpoint = "http://127.0.0.1:8868/ocr";
+        }
+
+        if (string.IsNullOrWhiteSpace(RapidOcrEndpoint))
+        {
+            RapidOcrEndpoint = "http://127.0.0.1:8869/ocr";
+        }
+
+        if (string.IsNullOrWhiteSpace(MangaOcrEndpoint))
+        {
+            MangaOcrEndpoint = "http://127.0.0.1:8870/ocr";
         }
 
         foreach (var pair in CreateDefaultHotkeys())

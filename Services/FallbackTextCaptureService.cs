@@ -62,7 +62,8 @@ public sealed class FallbackTextCaptureService(ITextCaptureService primary, ITex
     private static bool IsUnavailableResult(IReadOnlyList<OcrTextLine> lines)
     {
         return lines.Count == 1 &&
-               (lines[0].Text.StartsWith("PaddleOCR unavailable:", StringComparison.OrdinalIgnoreCase) ||
-                lines[0].Text.StartsWith("Invalid PaddleOCR endpoint:", StringComparison.OrdinalIgnoreCase));
+               (lines[0].Text.Contains(" unavailable:", StringComparison.OrdinalIgnoreCase) ||
+                lines[0].Text.Contains(" failed (", StringComparison.OrdinalIgnoreCase) ||
+                lines[0].Text.StartsWith("Invalid ", StringComparison.OrdinalIgnoreCase));
     }
 }

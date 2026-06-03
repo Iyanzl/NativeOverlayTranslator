@@ -43,6 +43,8 @@ public sealed class LocalizationService
             ["TesseractPath"] = "Tesseract path",
             ["OcrLanguages"] = "OCR languages",
             ["PaddleOcrEndpoint"] = "PaddleOCR endpoint",
+            ["RapidOcrEndpoint"] = "RapidOCR endpoint",
+            ["MangaOcrEndpoint"] = "MangaOCR endpoint",
             ["Hotkeys"] = "Hotkeys",
             ["HotkeyHelp"] = "Format: Ctrl+Alt+Space, Ctrl+Shift+F8, Alt+Q. Blank disables a shortcut.",
             ["SaveSettings"] = "Save settings",
