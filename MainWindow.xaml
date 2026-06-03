@@ -63,6 +63,11 @@
                                   SelectedValuePath="Mode"
                                   Margin="0,4,0,8"
                                   SelectionChanged="HoverModeCombo_OnSelectionChanged" />
+                        <TextBlock x:Name="HoverOcrEngineLabel" Text="Hover OCR engine" Foreground="#5B6472" />
+                        <ComboBox x:Name="HoverOcrEngineCombo"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Engine"
+                                  Margin="0,4,0,8" />
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

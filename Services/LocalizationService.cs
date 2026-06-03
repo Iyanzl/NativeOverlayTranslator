@@ -25,6 +25,7 @@ public sealed class LocalizationService
             ["TestImage"] = "Test 1.png",
             ["EnableHover"] = "Enable hover translate",
             ["HoverMode"] = "Hover mode",
+            ["HoverOcrEngine"] = "Hover OCR engine",
             ["HoverWord"] = "Word",
             ["HoverPhrase"] = "Phrase",
             ["HoverSentence"] = "Sentence",

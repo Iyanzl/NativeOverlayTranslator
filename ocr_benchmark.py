@@ -4,11 +4,12 @@ import argparse
 import base64
 import json
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 
-def post_ocr(endpoint: str, image_path: Path, language: str) -> tuple[float, dict]:
+def post_ocr(endpoint: str, image_path: Path, language: str) -> tuple[float, dict, int]:
     payload = {
         "Image_Base64": base64.b64encode(image_path.read_bytes()).decode("ascii"),
         "Language": language,
@@ -22,9 +23,14 @@ def post_ocr(endpoint: str, image_path: Path, language: str) -> tuple[float, dic
         method="POST",
     )
     start = time.perf_counter()
-    with urllib.request.urlopen(request, timeout=240) as response:
-        data = json.loads(response.read().decode("utf-8"))
-    return time.perf_counter() - start, data
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=240) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return time.perf_counter() - start, data, response.status
+    except urllib.error.HTTPError as ex:
+        body = ex.read().decode("utf-8", errors="replace")
+        return time.perf_counter() - start, {"error": body}, ex.code
 
 
 def main() -> None:
@@ -37,16 +43,18 @@ def main() -> None:
 
     image_path = Path(args.image)
     for index in range(args.repeat):
-        elapsed, data = post_ocr(args.endpoint, image_path, args.language)
+        elapsed, data, status = post_ocr(args.endpoint, image_path, args.language)
         lines = data.get("lines") or []
         first = lines[0].get("text", "") if lines else ""
         print(
             json.dumps(
                 {
                     "run": index + 1,
+                    "status": status,
                     "elapsed_seconds": round(elapsed, 3),
                     "line_count": len(lines),
                     "first_text": first[:120],
+                    "error": str(data.get("error", ""))[:200],
                 },
                 ensure_ascii=False,
             )

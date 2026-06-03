@@ -10,6 +10,7 @@ public sealed class AppSettings
     public string SourceLanguage { get; set; } = "auto";
     public string TargetLanguage { get; set; } = "Chinese";
     public OcrEngineKind OcrEngine { get; set; } = OcrEngineKind.Tesseract;
+    public OcrEngineKind HoverOcrEngine { get; set; } = OcrEngineKind.RapidOcr;
     public string TesseractPath { get; set; } = @"D:\Program Files\Tesseract-OCR\tesseract.exe";
     public string OcrLanguages { get; set; } = "jpn+eng+chi_sim";
     public int OcrPageSegmentationMode { get; set; } = 11;

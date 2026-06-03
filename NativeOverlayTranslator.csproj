@@ -9,4 +9,8 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="NativeOverlayTranslator.Tests\**\*.cs" />
+  </ItemGroup>
+
 </Project>

@@ -133,6 +133,15 @@ public partial class ImageTranslationWindow : Window
         Diagnostics.Log($"ImageTranslate start path='{_imagePath}'");
         var lines = await _ocrService.CaptureImageAsync(_imagePath, CancellationToken.None);
         Diagnostics.Log($"ImageTranslate raw lines={lines.Count}");
+        if (OcrFailureDetector.IsFailureResult(lines))
+        {
+            var message = OcrFailureDetector.BuildFailureMessage(_ocrService.Name, lines);
+            Diagnostics.Log($"ImageTranslate selected engine failed engine='{_ocrService.Name}' message='{message}'");
+            StatusText.Text = message;
+            System.Windows.MessageBox.Show(message, "Image OCR failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
         var usefulLines = lines
             .Where(line => line.Bounds.Width > 8 && line.Bounds.Height > 7 && line.Confidence >= 0.10)
             .ToList();

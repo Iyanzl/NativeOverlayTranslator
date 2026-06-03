@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _overlayFollowTimer;
     private readonly LocalizationService _localizer;
     private ITextCaptureService _ocrService;
+    private ITextCaptureService _hoverOcrService;
     private AppSettings _settings;
     private ITranslationService _translator;
     private HotkeyService? _hotkeys;
@@ -47,6 +48,8 @@ public partial class MainWindow : Window
     private DateTimeOffset _hoverCandidateSince;
     private CancellationTokenSource? _ocrCts;
     private bool _fullOcrRunning;
+    private string? _lastHoverOcrFailureMessage;
+    private DateTimeOffset _lastHoverOcrFailureAt;
 
     public MainWindow()
     {
@@ -55,6 +58,7 @@ public partial class MainWindow : Window
         _localizer = new LocalizationService(_settings.UiLanguage);
         _translator = new OpenAiCompatibleTranslationService(_settings);
         _ocrService = CreateOcrService();
+        _hoverOcrService = CreateOcrService(_settings.HoverOcrEngine);
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
         _hoverTimer.Tick += HoverTimer_OnTick;
         _overlayFollowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
@@ -88,6 +92,8 @@ public partial class MainWindow : Window
         HoverToggle.IsChecked = _settings.HoverTranslateEnabled;
         HoverModeCombo.ItemsSource = GetHoverModeOptions();
         HoverModeCombo.SelectedValue = _settings.HoverMode;
+        HoverOcrEngineCombo.ItemsSource = GetOcrEngineOptions();
+        HoverOcrEngineCombo.SelectedValue = _settings.HoverOcrEngine;
         HoverDisplaySecondsBox.Text = GetHoverDisplaySeconds(_settings.HoverMode).ToString("0.##");
         HoverTooltipToggle.IsChecked = _settings.HoverTooltipTranslateEnabled;
         OcrDebugToggle.IsChecked = _settings.OcrDebugEnabled;
@@ -365,6 +371,12 @@ public partial class MainWindow : Window
             StatusText.Text = _localizer.Format("Recognizing", mode);
             var lines = await _ocrService.CaptureAsync(_selectedTarget, region, token);
             Diagnostics.Log($"RunOcr raw mode='{mode}' lines={lines.Count}");
+            if (OcrFailureDetector.IsFailureResult(lines))
+            {
+                ShowOcrFailure(mode, _ocrService.Name, lines);
+                return;
+            }
+
             var filtered = lines
                 .Where(line => line.Bounds.Width > 8 && line.Bounds.Height > 7 && line.Confidence >= 0.10)
                 .Where(line => !IsAlreadyTranslatedOcrLine(line))
@@ -529,6 +541,12 @@ public partial class MainWindow : Window
 
             var lines = await CaptureHoverTextAsync(region, token);
             Diagnostics.Log($"Hover raw lines={lines.Count}");
+            if (OcrFailureDetector.IsFailureResult(lines))
+            {
+                ShowHoverOcrFailure(_hoverOcrService.Name, lines);
+                return;
+            }
+
             RestoreHoverOverlaysAfterCapture();
             var line = PickHoverLine(lines, point.X, point.Y, _settings.SourceLanguage, _settings.TargetLanguage, _settings.HoverMode);
             if (line is null || token.IsCancellationRequested)
@@ -606,10 +624,10 @@ public partial class MainWindow : Window
     {
         if (_settings.HoverMode == HoverMode.Word)
         {
-            return await _ocrService.CaptureWordsAsync(_selectedTarget, region, cancellationToken);
+            return await _hoverOcrService.CaptureWordsAsync(_selectedTarget, region, cancellationToken);
         }
 
-        return await _ocrService.CaptureAsync(_selectedTarget, region, cancellationToken);
+        return await _hoverOcrService.CaptureAsync(_selectedTarget, region, cancellationToken);
     }
 
     private static TimeSpan GetHoverDisplayDuration(HoverMode mode)
@@ -666,6 +684,12 @@ public partial class MainWindow : Window
         try
         {
             var lines = await _ocrService.CaptureAsync(_selectedTarget, tooltipRegion, cancellationToken);
+            if (OcrFailureDetector.IsFailureResult(lines))
+            {
+                ShowHoverOcrFailure(_ocrService.Name, lines);
+                return currentTranslation;
+            }
+
             var tooltipText = BuildTooltipSourceText(lines, baseLine.Text);
             if (string.IsNullOrWhiteSpace(tooltipText))
             {
@@ -1481,6 +1505,7 @@ public partial class MainWindow : Window
         _settings.SourceLanguage = SourceLanguageCombo.SelectedValue as string ?? "auto";
         _settings.TargetLanguage = TargetLanguageBox.Text.Trim();
         _settings.OcrEngine = OcrEngineCombo.SelectedValue is OcrEngineKind engine ? engine : OcrEngineKind.Tesseract;
+        _settings.HoverOcrEngine = HoverOcrEngineCombo.SelectedValue is OcrEngineKind hoverEngine ? hoverEngine : OcrEngineKind.RapidOcr;
         _settings.TesseractPath = TesseractPathBox.Text.Trim();
         _settings.PaddleOcrEndpoint = PaddleOcrEndpointBox.Text.Trim();
         _settings.RapidOcrEndpoint = RapidOcrEndpointBox.Text.Trim();
@@ -1497,6 +1522,7 @@ public partial class MainWindow : Window
         _settingsStore.SaveSettings(_settings);
         _translator = new OpenAiCompatibleTranslationService(_settings);
         _ocrService = CreateOcrService();
+        _hoverOcrService = CreateOcrService(_settings.HoverOcrEngine);
         ApplyLocalization();
 
         if (_hotkeys is not null)
@@ -1824,6 +1850,9 @@ public partial class MainWindow : Window
         HoverModeLabel.Text = _localizer.T("HoverMode");
         HoverModeCombo.ItemsSource = GetHoverModeOptions();
         HoverModeCombo.SelectedValue = _settings.HoverMode;
+        HoverOcrEngineLabel.Text = _localizer.T("HoverOcrEngine");
+        HoverOcrEngineCombo.ItemsSource = GetOcrEngineOptions();
+        HoverOcrEngineCombo.SelectedValue = _settings.HoverOcrEngine;
         HoverDisplaySecondsLabel.Text = _localizer.T("HoverDisplaySeconds");
         HoverTooltipToggle.Content = _localizer.T("HoverTooltip");
         ClipboardToggle.Content = _localizer.T("EnableClipboard");
@@ -1939,19 +1968,44 @@ public partial class MainWindow : Window
 
     private ITextCaptureService CreateOcrService()
     {
-        return _settings.OcrEngine switch
+        return CreateOcrService(_settings.OcrEngine);
+    }
+
+    private ITextCaptureService CreateOcrService(OcrEngineKind engine)
+    {
+        return engine switch
         {
-            OcrEngineKind.PaddleOcr => new FallbackTextCaptureService(
-                new PaddleOcrService(_settings),
-                new TesseractOcrService(_settings)),
-            OcrEngineKind.RapidOcr => new FallbackTextCaptureService(
-                new HttpOcrService(_settings, "RapidOCR", settings => settings.RapidOcrEndpoint),
-                new TesseractOcrService(_settings)),
-            OcrEngineKind.MangaOcr => new FallbackTextCaptureService(
-                new HttpOcrService(_settings, "MangaOCR", settings => settings.MangaOcrEndpoint),
-                new TesseractOcrService(_settings)),
+            OcrEngineKind.PaddleOcr => new PaddleOcrService(_settings),
+            OcrEngineKind.RapidOcr => new HttpOcrService(_settings, "RapidOCR", settings => settings.RapidOcrEndpoint),
+            OcrEngineKind.MangaOcr => new HttpOcrService(_settings, "MangaOCR", settings => settings.MangaOcrEndpoint),
             _ => new TesseractOcrService(_settings)
         };
+    }
+
+    private void ShowOcrFailure(string mode, string engineName, IReadOnlyList<OcrTextLine> lines)
+    {
+        var message = OcrFailureDetector.BuildFailureMessage(engineName, lines);
+        Diagnostics.Log($"RunOcr selected engine failed mode='{mode}' engine='{engineName}' message='{message}'");
+        StatusText.Text = _localizer.Format("Failed", mode, message);
+        MessageBox.Show(message, _localizer.Format("Failed", mode, ""), MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private void ShowHoverOcrFailure(string engineName, IReadOnlyList<OcrTextLine> lines)
+    {
+        var message = OcrFailureDetector.BuildFailureMessage(engineName, lines);
+        StatusText.Text = $"Hover OCR failed: {message}";
+        Diagnostics.Log($"Hover selected engine failed engine='{engineName}' message='{message}'");
+
+        var now = DateTimeOffset.Now;
+        if (string.Equals(_lastHoverOcrFailureMessage, message, StringComparison.Ordinal) &&
+            now - _lastHoverOcrFailureAt < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+
+        _lastHoverOcrFailureMessage = message;
+        _lastHoverOcrFailureAt = now;
+        MessageBox.Show(message, "Hover OCR failed", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private IReadOnlyList<OcrEngineOption> GetOcrEngineOptions()
