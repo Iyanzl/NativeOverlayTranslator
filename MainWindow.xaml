@@ -1,0 +1,182 @@
+<Window x:Class="NativeOverlayTranslator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Native Overlay Translator"
+        Height="760"
+        Width="1120"
+        MinHeight="680"
+        MinWidth="960"
+        Background="#F5F6F8">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,14">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button x:Name="RefreshWindowsButton" Content="Refresh windows" Padding="14,8" Margin="0,0,8,0" Click="RefreshWindows_OnClick" />
+                <Button x:Name="HidePanelButton" Content="Hide panel" Padding="14,8" Click="HidePanel_OnClick" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="Native Overlay Translator" FontSize="24" FontWeight="SemiBold" Foreground="#111827" />
+                <TextBlock x:Name="SubtitleText" Text="Configure every shortcut below. Leave a hotkey blank to disable it." Foreground="#5B6472" Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="390" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8" Padding="14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="UiLanguageLabel" Text="UI language" Foreground="#5B6472" />
+                        <ComboBox x:Name="UiLanguageCombo"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Code"
+                                  Margin="0,4,0,14"
+                                  SelectionChanged="UiLanguageCombo_OnSelectionChanged" />
+
+                        <TextBlock x:Name="TargetWindowHeading" Text="Target window" FontSize="16" FontWeight="SemiBold" />
+                        <ComboBox x:Name="WindowCombo"
+                                  Margin="0,10,0,8"
+                                  SelectionChanged="WindowCombo_OnSelectionChanged" />
+                        <TextBlock x:Name="SelectedWindowText" TextWrapping="Wrap" Foreground="#5B6472" />
+
+                        <UniformGrid Columns="2" Margin="0,18,0,12">
+                            <Button x:Name="FullOcrButton" Content="Full OCR" Padding="10,9" Margin="0,0,6,8" Click="FullOcr_OnClick" />
+                            <Button x:Name="RegionOcrButton" Content="Region OCR" Padding="10,9" Margin="6,0,0,8" Click="RegionOcr_OnClick" />
+                            <Button x:Name="ScreenshotTranslateButton" Content="Screenshot" Padding="10,9" Margin="0,0,6,8" Click="ScreenshotTranslate_OnClick" />
+                            <Button x:Name="ManualOverlayButton" Content="New overlay" Padding="10,9" Margin="6,0,0,8" Click="ManualOverlay_OnClick" />
+                            <Button x:Name="TestImageButton" Content="Test 1.png" Padding="10,9" Margin="0,0,6,8" Click="TestImage_OnClick" />
+                        </UniformGrid>
+
+                        <CheckBox x:Name="HoverToggle" Content="Enable hover translate" Margin="0,0,0,10" Checked="HoverToggle_OnChanged" Unchecked="HoverToggle_OnChanged" />
+                        <TextBlock x:Name="HoverModeLabel" Text="Hover mode" Foreground="#5B6472" />
+                        <ComboBox x:Name="HoverModeCombo"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Mode"
+                                  Margin="0,4,0,8"
+                                  SelectionChanged="HoverModeCombo_OnSelectionChanged" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="82" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="HoverDisplaySecondsLabel" Text="Display seconds" Foreground="#5B6472" VerticalAlignment="Center" />
+                            <TextBox x:Name="HoverDisplaySecondsBox"
+                                     Grid.Column="1"
+                                     TextChanged="HoverDisplaySecondsBox_OnTextChanged"
+                                     LostFocus="HoverDisplaySecondsBox_OnLostFocus" />
+                        </Grid>
+                        <CheckBox x:Name="HoverTooltipToggle" Content="Translate hover popups/tooltips" Margin="0,0,0,10" Checked="HoverTooltipToggle_OnChanged" Unchecked="HoverTooltipToggle_OnChanged" />
+                        <CheckBox x:Name="ClipboardToggle" Content="Enable Ctrl+C twice translate" Margin="0,0,0,8" Checked="ClipboardToggle_OnChanged" Unchecked="ClipboardToggle_OnChanged" />
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="82" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ClipboardDisplaySecondsLabel" Text="Ctrl+C display seconds" Foreground="#5B6472" VerticalAlignment="Center" />
+                            <TextBox x:Name="ClipboardDisplaySecondsBox"
+                                     Grid.Column="1"
+                                     TextChanged="ClipboardDisplaySecondsBox_OnTextChanged"
+                                     LostFocus="ClipboardDisplaySecondsBox_OnLostFocus" />
+                        </Grid>
+                        <CheckBox x:Name="OcrDebugToggle" Content="OCR debug: show recognized text only" Margin="0,0,0,18" Checked="OcrDebugToggle_OnChanged" Unchecked="OcrDebugToggle_OnChanged" />
+
+                        <TextBlock x:Name="TranslationApiHeading" Text="Translation API" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock x:Name="EndpointLabel" Text="Endpoint" Foreground="#5B6472" />
+                        <TextBox x:Name="EndpointBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="ModelLabel" Text="Model" Foreground="#5B6472" />
+                        <TextBox x:Name="ModelBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="ApiKeyLabel" Text="API Key" Foreground="#5B6472" />
+                        <PasswordBox x:Name="ApiKeyBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="SourceLanguageLabel" Text="Source language" Foreground="#5B6472" />
+                        <ComboBox x:Name="SourceLanguageCombo"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Code"
+                                  Margin="0,4,0,8"
+                                  SelectionChanged="SourceLanguageCombo_OnSelectionChanged" />
+                        <TextBlock x:Name="TargetLanguageLabel" Text="Target language" Foreground="#5B6472" />
+                        <TextBox x:Name="TargetLanguageBox" Margin="0,4,0,12" />
+                        <TextBlock x:Name="TesseractPathLabel" Text="Tesseract path" Foreground="#5B6472" />
+                        <TextBox x:Name="TesseractPathBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="OcrLanguagesLabel" Text="OCR languages" Foreground="#5B6472" />
+                        <TextBox x:Name="OcrLanguagesBox" Margin="0,4,0,12" />
+
+                        <TextBlock x:Name="HotkeysHeading" Text="Hotkeys" FontWeight="SemiBold" Margin="0,8,0,8" />
+                        <ItemsControl x:Name="HotkeyList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="155" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}" Foreground="#374151" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <TextBox Grid.Column="1" Text="{Binding Gesture, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="HotkeyHelpText" Text="Format: Ctrl+Alt+Space, Ctrl+Shift+F8, Alt+Q. Blank disables a shortcut." Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                        <Button x:Name="SaveSettingsButton" Content="Save settings" Padding="12,8" Click="SaveSettings_OnClick" />
+                        <TextBlock x:Name="OverlayHelpText"
+                                   Text="Overlay edit: Alt + left mouse drag. Locked overlays click through to the target app."
+                                   Foreground="#5B6472"
+                                   TextWrapping="Wrap"
+                                   Margin="0,12,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="2" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button x:Name="EditOverlaysButton" Content="Edit overlays" Padding="12,8" Margin="0,0,8,0" Click="EditOverlays_OnClick" />
+                            <Button x:Name="LockOverlaysButton" Content="Lock overlays" Padding="12,8" Margin="0,0,8,0" Click="LockOverlays_OnClick" />
+                            <Button x:Name="ClearOverlaysButton" Content="Clear overlays" Padding="12,8" Click="ClearOverlays_OnClick" />
+                        </StackPanel>
+                        <TextBlock x:Name="TranslationsHeading" Text="Translations and overlays" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <ListView x:Name="OverlayList" Grid.Row="1">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn x:Name="SourceColumn" Header="Source" Width="110" DisplayMemberBinding="{Binding ProcessName}" />
+                                <GridViewColumn x:Name="OriginalColumn" Header="Original" Width="260" DisplayMemberBinding="{Binding SourceText}" />
+                                <GridViewColumn x:Name="TranslationColumn" Header="Translation" Width="360" DisplayMemberBinding="{Binding TranslatedText}" />
+                                <GridViewColumn x:Name="UpdatedColumn" Header="Updated" Width="150" DisplayMemberBinding="{Binding UpdatedAt}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <TextBlock x:Name="StatusText"
+                               Grid.Row="2"
+                               Foreground="#5B6472"
+                               Text="Ready."
+                               Margin="0,12,0,0" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock x:Name="BuildInfoText"
+                   Grid.Row="2"
+                   Text="Current build: Tesseract OCR, configurable hotkeys, editable overlays, per-app translation memory, OpenAI-compatible translation API."
+                   Foreground="#6B7280"
+                   Margin="0,12,0,0" />
+    </Grid>
+</Window>

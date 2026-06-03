@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+
+# Runtime logs and generated captures
+logs/
+screenshots/
+*.log
+crash.log
+diagnostic.log
+
+# Generated translated images
+翻译.png
+translated.png
+
+# User/local machine settings
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
