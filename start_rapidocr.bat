@@ -2,17 +2,18 @@
 setlocal
 cd /d "%~dp0"
 
-if not exist ".venv-paddle\Scripts\python.exe" (
-    echo Missing .venv-paddle. Run start_paddleocr.bat once first.
-    pause
-    goto end
+if not exist ".venv-rapidocr\Scripts\python.exe" (
+    echo Creating RapidOCR virtual environment...
+    python -m venv .venv-rapidocr
+    if errorlevel 1 goto failed
 )
 
-call ".venv-paddle\Scripts\activate.bat"
+call ".venv-rapidocr\Scripts\activate.bat"
+set PYTHONPATH=D:\AI\envs\shared-onnx-gpu\Lib\site-packages;%PYTHONPATH%
 
 python -c "import rapidocr, onnxruntime" >nul 2>nul
 if errorlevel 1 (
-    echo Installing RapidOCR dependencies...
+    echo Installing RapidOCR dependencies. ONNXRuntime GPU is loaded from shared-onnx-gpu.
     python -m pip install -r requirements-rapidocr.txt
     if errorlevel 1 goto failed
 )

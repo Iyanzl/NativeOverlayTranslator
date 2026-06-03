@@ -15,6 +15,7 @@ translated.png
 
 # User/local machine settings
 .venv-paddle/
+.venv-rapidocr/
 .vs/
 .vscode/
 *.user
