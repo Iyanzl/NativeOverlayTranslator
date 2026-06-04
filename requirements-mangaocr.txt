@@ -1,1 +1,12 @@
-manga-ocr
+# manga-ocr itself is installed with --no-deps by start_mangaocr.bat.
+# Heavy torch dependencies are loaded from D:\AI\envs\shared-torch-cu130
+# through PYTHONPATH.
+fire
+fugashi
+jaconv
+loguru
+numpy
+Pillow>=10.0.0
+pyperclip
+transformers>=4.25.0
+unidic_lite
