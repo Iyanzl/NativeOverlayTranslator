@@ -12,7 +12,6 @@ from PIL import Image
 
 _ocr_lock = threading.Lock()
 _ocr: Any | None = None
-CLIENT_DISCONNECTED_ERRORS = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 
 
 def _get_ocr() -> Any:
@@ -82,13 +81,8 @@ class MangaOcrHandler(BaseHTTPRequestHandler):
 
             lines = recognize(base64.b64decode(image_base64))
             self._write_json(200, {"lines": lines})
-        except CLIENT_DISCONNECTED_ERRORS as exc:
-            print(f"[MangaOCR] client disconnected before response was sent: {exc}")
         except Exception as exc:
-            try:
-                self._write_json(500, {"error": str(exc)})
-            except CLIENT_DISCONNECTED_ERRORS as write_exc:
-                print(f"[MangaOCR] client disconnected before error response was sent: {write_exc}")
+            self._write_json(500, {"error": str(exc)})
 
     def log_message(self, format: str, *args: Any) -> None:
         print(f"[MangaOCR] {self.address_string()} - {format % args}")
