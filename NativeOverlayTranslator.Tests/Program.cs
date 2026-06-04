@@ -19,7 +19,16 @@ var normalLines = new[]
 
 Assert(!OcrFailureDetector.IsFailureResult(normalLines), "normal OCR text is not treated as failure");
 
-Console.WriteLine("OcrFailureDetector tests passed.");
+var settings = new AppSettings
+{
+    LunaOcrEndpoint = ""
+};
+settings.EnsureDefaults();
+
+Assert(settings.LunaOcrEndpoint == "http://127.0.0.1:8871/ocr", "LunaOCR endpoint default is restored");
+Assert(Enum.IsDefined(typeof(OcrEngineKind), "LunaOcr"), "LunaOCR engine option exists");
+
+Console.WriteLine("OCR service tests passed.");
 
 static void Assert(bool condition, string message)
 {

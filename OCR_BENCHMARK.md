@@ -16,15 +16,19 @@ Current benchmark snapshot:
 | Backend | Image | Language | Run | Time | Lines | Notes |
 | --- | --- | --- | ---: | ---: | ---: | --- |
 | RapidOCR + shared ONNX GPU | `1.png` | English | warm | 1.079s | 48 | Fast; usable for English UI; loses some spacing, for example `UEVR[rev...]` |
+| LunaOCR default scale 5 + DML GPU | `1.png` | English | warm | 1.123s | 47 | Good English UI spacing; uses copied LunaTranslator default model |
 | PaddleOCR CPU service | `1.png` | English | warm | 6.309s | 52 | Better spacing; too slow for hover |
 | MangaOCR service | `1.png` | English | single | 500 | n/a | Server error: missing `jaconv` dependency |
 | RapidOCR + shared ONNX GPU | `jp.png` | Japanese | warm | 1.314s | 15 | Fast but drops some characters; lower quality than Paddle |
+| LunaOCR default scale 5 + DML GPU | `jp.png` | Japanese | warm | 0.439s | 15 | Fast and practical; better Japanese completeness than default RapidOCR in this sample |
 | PaddleOCR CPU service | `jp.png` | Japanese | warm | 15.300s | 15 | Best Japanese quality in current tests |
 | MangaOCR service | `jp.png` | Japanese | single | 500 | n/a | Server error: missing `jaconv` dependency |
 | RapidOCR + shared ONNX GPU | `翻译.png` | Chinese | warm | 1.396s | 47 | Fast and partially usable; first line has noise |
+| LunaOCR default scale 5 + DML GPU | `翻译.png` | Chinese | warm | 1.085s | 46 | Good practical default; preserves English/UI spacing better than the Luna high-accuracy model |
 | PaddleOCR CPU service | `翻译.png` | Chinese | warm | 19.581s | 49 | Very slow; first line missed leading UI text in this sample |
 | MangaOCR service | `翻译.png` | Chinese | single | 500 | n/a | Server error: missing `jaconv` dependency |
 | RapidOCR + shared ONNX GPU | `2.png` | English small region | warm | 0.783s | 3 | Best hover candidate; returns `ForceAutoFit` without spacing |
+| LunaOCR default scale 5 + DML GPU | `2.png` | English small region | warm | 0.102s | 3 | Very fast; returns `Force AutoFit` with correct spacing |
 | PaddleOCR CPU service | `2.png` | English small region | warm | 1.967s | 3 | Better spacing, `Force AutoFit`, but slower and inconsistent |
 | PaddleOCR CPU service | `1.png` | English | cold-ish | 11.743s | 52 | Good quality, too slow for hover |
 | PaddleOCR CPU service | `1.png` | English | warm | 6.443s | 52 | Region/screenshot only |
@@ -39,8 +43,8 @@ Current benchmark snapshot:
 
 Working recommendation:
 
-- Hover OCR: RapidOCR service, especially for English UI and small regions.
-- Region/screenshot OCR: PaddleOCR service for quality.
-- Japanese quality mode: PaddleOCR for now.
-- Chinese OCR: RapidOCR is the practical default for speed; PaddleOCR may need more targeted samples before recommending it.
+- Hover OCR: RapidOCR remains a good default; LunaOCR default scale 5 is also viable and is faster on the bundled small English sample.
+- Region/screenshot OCR: LunaOCR default scale 5 is the practical local default when LunaTranslator is installed.
+- Japanese quality mode: LunaOCR default scale 5 is much faster than PaddleOCR and good enough for current samples; PaddleOCR remains the slower fallback for difficult cases.
+- Chinese OCR: LunaOCR default scale 5 is the practical default for speed and spacing in current samples.
 - MangaOCR: current service returns HTTP 500 with `No module named 'jaconv'`, so keep it disabled for general OCR until that dependency path is fixed.

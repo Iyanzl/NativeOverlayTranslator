@@ -45,6 +45,7 @@ public sealed class LocalizationService
             ["OcrLanguages"] = "OCR languages",
             ["PaddleOcrEndpoint"] = "PaddleOCR endpoint",
             ["RapidOcrEndpoint"] = "RapidOCR endpoint",
+            ["LunaOcrEndpoint"] = "LunaOCR endpoint",
             ["MangaOcrEndpoint"] = "MangaOCR endpoint",
             ["Hotkeys"] = "Hotkeys",
             ["HotkeyHelp"] = "Format: Ctrl+Alt+Space, Ctrl+Shift+F8, Alt+Q. Blank disables a shortcut.",

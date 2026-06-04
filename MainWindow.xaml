@@ -122,6 +122,8 @@
                         <TextBox x:Name="PaddleOcrEndpointBox" Margin="0,4,0,8" />
                         <TextBlock x:Name="RapidOcrEndpointLabel" Text="RapidOCR endpoint" Foreground="#5B6472" />
                         <TextBox x:Name="RapidOcrEndpointBox" Margin="0,4,0,8" />
+                        <TextBlock x:Name="LunaOcrEndpointLabel" Text="LunaOCR endpoint" Foreground="#5B6472" />
+                        <TextBox x:Name="LunaOcrEndpointBox" Margin="0,4,0,8" />
                         <TextBlock x:Name="MangaOcrEndpointLabel" Text="MangaOCR endpoint" Foreground="#5B6472" />
                         <TextBox x:Name="MangaOcrEndpointBox" Margin="0,4,0,12" />
 

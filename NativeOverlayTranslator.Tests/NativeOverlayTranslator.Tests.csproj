@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Models\AppSettings.cs" Link="Models\AppSettings.cs" />
+    <Compile Include="..\Models\HotkeyAction.cs" Link="Models\HotkeyAction.cs" />
+    <Compile Include="..\Models\HoverMode.cs" Link="Models\HoverMode.cs" />
+    <Compile Include="..\Models\OcrEngineKind.cs" Link="Models\OcrEngineKind.cs" />
     <Compile Include="..\Models\OcrTextLine.cs" Link="Models\OcrTextLine.cs" />
     <Compile Include="..\Services\OcrFailureDetector.cs" Link="Services\OcrFailureDetector.cs" />
   </ItemGroup>

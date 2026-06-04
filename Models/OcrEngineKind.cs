@@ -5,5 +5,6 @@ public enum OcrEngineKind
     Tesseract,
     PaddleOcr,
     RapidOcr,
+    LunaOcr,
     MangaOcr
 }
