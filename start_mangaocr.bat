@@ -18,10 +18,8 @@ set MANGA_OCR_PORT=8870
 
 python -c "import manga_ocr" >nul 2>nul
 if errorlevel 1 (
-    echo Installing MangaOCR wrapper and lightweight dependencies. Torch is loaded from shared-torch-cu130.
+    echo Installing MangaOCR wrapper dependencies. Torch is loaded from shared-torch-cu130.
     python -m pip install manga-ocr --no-deps
-    if errorlevel 1 goto failed
-    python -m pip install -r requirements-mangaocr.txt
     if errorlevel 1 goto failed
 )
 
