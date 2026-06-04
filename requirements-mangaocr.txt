@@ -8,6 +8,5 @@ loguru
 numpy
 Pillow>=10.0.0
 pyperclip
-socksio
 transformers>=4.25.0
 unidic_lite
