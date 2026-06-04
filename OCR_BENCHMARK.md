@@ -5,46 +5,34 @@ Test machine:
 - GPU: NVIDIA RTX PRO 6000 Blackwell Workstation Edition
 - Shared Torch env: `D:\AI\envs\shared-torch-cu130`
 - Shared ONNX GPU env: `D:\AI\envs\shared-onnx-gpu`
+- LunaTranslator runtime: `D:\Program Files\LunaTranslator`
 
-Verified shared environments:
+Current retained OCR backends:
 
-- Torch: `2.10.0+cu130`, CUDA available.
-- ONNX Runtime: `1.23.2`, providers include `TensorrtExecutionProvider`, `CUDAExecutionProvider`, `CPUExecutionProvider`.
+| Backend | Role | Notes |
+| --- | --- | --- |
+| LunaOCR default scale 5 + DML GPU | Primary local OCR | Best practical default for hover, region, screenshot, Japanese, and Chinese in current samples. Requires LunaTranslator runtime files. |
+| Tesseract OCR | Lightweight fallback | Fast and independent, but Japanese is unusable and small UI text is less reliable. |
+| PaddleOCR CPU service | Slow quality fallback | Kept for difficult cases; too slow for hover and normal interactive use. |
 
 Current benchmark snapshot:
 
 | Backend | Image | Language | Run | Time | Lines | Notes |
 | --- | --- | --- | ---: | ---: | ---: | --- |
-| RapidOCR + shared ONNX GPU | `1.png` | English | warm | 1.079s | 48 | Fast; usable for English UI; loses some spacing, for example `UEVR[rev...]` |
 | LunaOCR default scale 5 + DML GPU | `1.png` | English | warm | 1.123s | 47 | Good English UI spacing; uses copied LunaTranslator default model |
-| PaddleOCR CPU service | `1.png` | English | warm | 6.309s | 52 | Better spacing; too slow for hover |
-| MangaOCR service | `1.png` | English | single | 500 | n/a | Server error: missing `jaconv` dependency |
-| RapidOCR + shared ONNX GPU | `jp.png` | Japanese | warm | 1.314s | 15 | Fast but drops some characters; lower quality than Paddle |
-| LunaOCR default scale 5 + DML GPU | `jp.png` | Japanese | warm | 0.439s | 15 | Fast and practical; better Japanese completeness than default RapidOCR in this sample |
-| PaddleOCR CPU service | `jp.png` | Japanese | warm | 15.300s | 15 | Best Japanese quality in current tests |
-| MangaOCR service | `jp.png` | Japanese | single | 500 | n/a | Server error: missing `jaconv` dependency |
-| RapidOCR + shared ONNX GPU | `翻译.png` | Chinese | warm | 1.396s | 47 | Fast and partially usable; first line has noise |
-| LunaOCR default scale 5 + DML GPU | `翻译.png` | Chinese | warm | 1.085s | 46 | Good practical default; preserves English/UI spacing better than the Luna high-accuracy model |
-| PaddleOCR CPU service | `翻译.png` | Chinese | warm | 19.581s | 49 | Very slow; first line missed leading UI text in this sample |
-| MangaOCR service | `翻译.png` | Chinese | single | 500 | n/a | Server error: missing `jaconv` dependency |
-| RapidOCR + shared ONNX GPU | `2.png` | English small region | warm | 0.783s | 3 | Best hover candidate; returns `ForceAutoFit` without spacing |
-| LunaOCR default scale 5 + DML GPU | `2.png` | English small region | warm | 0.102s | 3 | Very fast; returns `Force AutoFit` with correct spacing |
-| PaddleOCR CPU service | `2.png` | English small region | warm | 1.967s | 3 | Better spacing, `Force AutoFit`, but slower and inconsistent |
-| PaddleOCR CPU service | `1.png` | English | cold-ish | 11.743s | 52 | Good quality, too slow for hover |
-| PaddleOCR CPU service | `1.png` | English | warm | 6.443s | 52 | Region/screenshot only |
-| PaddleOCR CPU service | `jp.png` | Japanese | cold-ish | 16.132s | 15 | Good Japanese quality |
-| PaddleOCR CPU service | `jp.png` | Japanese | warm | 15.527s | 15 | Too slow for hover |
-| RapidOCR + shared ONNX GPU | `2.png` | English | cold-ish | 4.084s | 3 | First run includes model/session init |
-| RapidOCR + shared ONNX GPU | `2.png` | English | warm | 0.673s | 3 | Suitable candidate for hover |
-| RapidOCR + shared ONNX GPU | `1.png` | English | warm | 2.166s | 48 | Faster than Paddle, slight spacing loss |
-| RapidOCR + shared ONNX GPU | `jp.png` | Japanese | warm | 2.964s | 15 | Faster, but Japanese quality lower than Paddle |
-| Tesseract | `1.png` | English | single | 0.669s | n/a | Fast but noisier |
-| Tesseract | `jp.png` | Japanese | single | 0.341s | n/a | Current Japanese output is unusable/garbled |
+| LunaOCR default scale 5 + DML GPU | `2.png` | English small region | warm | 0.085-0.102s | 3 | Very fast; returns `Force AutoFit` with correct spacing |
+| LunaOCR default scale 5 + DML GPU | `jp.png` | Japanese | warm | 0.439-0.483s | 15 | Fast and practical for Japanese UI/news screenshots |
+| LunaOCR default scale 5 + DML GPU | Chinese UI sample | Chinese | warm | 1.085s | 46 | Good practical default; preserves English/UI spacing well |
+| Tesseract OCR | `1.png` | English | single | 0.669s | n/a | Fast but noisier |
+| Tesseract OCR | `2.png` | English small region | single | 0.09s | n/a | Fast, but small UI text quality is weaker |
+| Tesseract OCR | `jp.png` | Japanese | single | 0.341s | n/a | Current Japanese output is unusable/garbled |
+| PaddleOCR CPU service | `1.png` | English | warm | 6.309s | 52 | Better spacing than older OCR options; too slow for hover |
+| PaddleOCR CPU service | `jp.png` | Japanese | warm | 15.300s | 15 | Good quality, but too slow for interactive use |
+| PaddleOCR CPU service | Chinese UI sample | Chinese | warm | 19.581s | 49 | Very slow |
 
 Working recommendation:
 
-- Hover OCR: RapidOCR remains a good default; LunaOCR default scale 5 is also viable and is faster on the bundled small English sample.
-- Region/screenshot OCR: LunaOCR default scale 5 is the practical local default when LunaTranslator is installed.
-- Japanese quality mode: LunaOCR default scale 5 is much faster than PaddleOCR and good enough for current samples; PaddleOCR remains the slower fallback for difficult cases.
-- Chinese OCR: LunaOCR default scale 5 is the practical default for speed and spacing in current samples.
-- MangaOCR: current service returns HTTP 500 with `No module named 'jaconv'`, so keep it disabled for general OCR until that dependency path is fixed.
+- Hover OCR: LunaOCR default scale 5.
+- Region/screenshot OCR: LunaOCR default scale 5.
+- Fallback when LunaTranslator runtime is unavailable: Tesseract OCR.
+- Difficult offline quality checks only: PaddleOCR.

@@ -10,14 +10,12 @@ public sealed class AppSettings
     public string SourceLanguage { get; set; } = "auto";
     public string TargetLanguage { get; set; } = "Chinese";
     public OcrEngineKind OcrEngine { get; set; } = OcrEngineKind.Tesseract;
-    public OcrEngineKind HoverOcrEngine { get; set; } = OcrEngineKind.RapidOcr;
+    public OcrEngineKind HoverOcrEngine { get; set; } = OcrEngineKind.LunaOcr;
     public string TesseractPath { get; set; } = @"D:\Program Files\Tesseract-OCR\tesseract.exe";
     public string OcrLanguages { get; set; } = "jpn+eng+chi_sim";
     public int OcrPageSegmentationMode { get; set; } = 11;
     public string PaddleOcrEndpoint { get; set; } = "http://127.0.0.1:8868/ocr";
-    public string RapidOcrEndpoint { get; set; } = "http://127.0.0.1:8869/ocr";
     public string LunaOcrEndpoint { get; set; } = "http://127.0.0.1:8871/ocr";
-    public string MangaOcrEndpoint { get; set; } = "http://127.0.0.1:8870/ocr";
     public string? LocalTranslationModelPath { get; set; }
     public string? LocalVisionModelPath { get; set; }
     public bool ClipboardDoubleCopyEnabled { get; set; } = true;
@@ -49,24 +47,24 @@ public sealed class AppSettings
             OcrPageSegmentationMode = 11;
         }
 
+        if (!Enum.IsDefined(OcrEngine))
+        {
+            OcrEngine = OcrEngineKind.LunaOcr;
+        }
+
+        if (!Enum.IsDefined(HoverOcrEngine))
+        {
+            HoverOcrEngine = OcrEngineKind.LunaOcr;
+        }
+
         if (string.IsNullOrWhiteSpace(PaddleOcrEndpoint))
         {
             PaddleOcrEndpoint = "http://127.0.0.1:8868/ocr";
         }
 
-        if (string.IsNullOrWhiteSpace(RapidOcrEndpoint))
-        {
-            RapidOcrEndpoint = "http://127.0.0.1:8869/ocr";
-        }
-
         if (string.IsNullOrWhiteSpace(LunaOcrEndpoint))
         {
             LunaOcrEndpoint = "http://127.0.0.1:8871/ocr";
-        }
-
-        if (string.IsNullOrWhiteSpace(MangaOcrEndpoint))
-        {
-            MangaOcrEndpoint = "http://127.0.0.1:8870/ocr";
         }
 
         foreach (var pair in CreateDefaultHotkeys())

@@ -57,7 +57,7 @@ Supported format examples: `Ctrl+Alt+Space`, `Ctrl+Shift+F8`, `Alt+Q`. Leave a f
 ## Next Implementation Steps
 
 1. 覆盖层锚点系统：窗口相对坐标、DPI、附近图像 hash、OCR 原文 hash。
-2. OCR 引擎抽象扩展：Windows OCR、PaddleOCR/RapidOCR、视觉模型 OCR。
+2. OCR 引擎抽象扩展：Windows OCR、PaddleOCR、LunaOCR、视觉模型 OCR。
 3. Hook 模块：先做外部接口和进程安全策略，再做具体引擎。
 4. 配置 profile：按软件保存 OCR 区域、覆盖层样式、术语表、引擎选择。
 5. 本地模型管理器：可选启动 llama.cpp server，并将 GGUF 模型暴露为 OpenAI-compatible API。

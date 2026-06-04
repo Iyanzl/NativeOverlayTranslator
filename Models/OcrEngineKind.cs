@@ -2,9 +2,7 @@ namespace NativeOverlayTranslator.Models;
 
 public enum OcrEngineKind
 {
-    Tesseract,
-    PaddleOcr,
-    RapidOcr,
-    LunaOcr,
-    MangaOcr
+    Tesseract = 0,
+    PaddleOcr = 1,
+    LunaOcr = 3
 }

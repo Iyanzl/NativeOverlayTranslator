@@ -85,9 +85,7 @@ public partial class MainWindow : Window
         TesseractPathBox.Text = _settings.TesseractPath;
         OcrLanguagesBox.Text = _settings.OcrLanguages;
         PaddleOcrEndpointBox.Text = _settings.PaddleOcrEndpoint;
-        RapidOcrEndpointBox.Text = _settings.RapidOcrEndpoint;
         LunaOcrEndpointBox.Text = _settings.LunaOcrEndpoint;
-        MangaOcrEndpointBox.Text = _settings.MangaOcrEndpoint;
         ClipboardToggle.IsChecked = _settings.ClipboardDoubleCopyEnabled;
         ClipboardDisplaySecondsBox.Text = ClampSeconds(_settings.ClipboardDisplaySeconds, 6).ToString("0.##");
         HoverToggle.IsChecked = _settings.HoverTranslateEnabled;
@@ -1506,12 +1504,10 @@ public partial class MainWindow : Window
         _settings.SourceLanguage = SourceLanguageCombo.SelectedValue as string ?? "auto";
         _settings.TargetLanguage = TargetLanguageBox.Text.Trim();
         _settings.OcrEngine = OcrEngineCombo.SelectedValue is OcrEngineKind engine ? engine : OcrEngineKind.Tesseract;
-        _settings.HoverOcrEngine = HoverOcrEngineCombo.SelectedValue is OcrEngineKind hoverEngine ? hoverEngine : OcrEngineKind.RapidOcr;
+        _settings.HoverOcrEngine = HoverOcrEngineCombo.SelectedValue is OcrEngineKind hoverEngine ? hoverEngine : OcrEngineKind.LunaOcr;
         _settings.TesseractPath = TesseractPathBox.Text.Trim();
         _settings.PaddleOcrEndpoint = PaddleOcrEndpointBox.Text.Trim();
-        _settings.RapidOcrEndpoint = RapidOcrEndpointBox.Text.Trim();
         _settings.LunaOcrEndpoint = LunaOcrEndpointBox.Text.Trim();
-        _settings.MangaOcrEndpoint = MangaOcrEndpointBox.Text.Trim();
         _settings.OcrLanguages = GetOcrLanguagesForSource(_settings.SourceLanguage);
         _settings.OcrPageSegmentationMode = GetPsmForSource(_settings.SourceLanguage);
         OcrLanguagesBox.Text = _settings.OcrLanguages;
@@ -1870,9 +1866,7 @@ public partial class MainWindow : Window
         TesseractPathLabel.Text = _localizer.T("TesseractPath");
         OcrLanguagesLabel.Text = _localizer.T("OcrLanguages");
         PaddleOcrEndpointLabel.Text = _localizer.T("PaddleOcrEndpoint");
-        RapidOcrEndpointLabel.Text = _localizer.T("RapidOcrEndpoint");
         LunaOcrEndpointLabel.Text = _localizer.T("LunaOcrEndpoint");
-        MangaOcrEndpointLabel.Text = _localizer.T("MangaOcrEndpoint");
         HotkeysHeading.Text = _localizer.T("Hotkeys");
         HotkeyHelpText.Text = _localizer.T("HotkeyHelp");
         SaveSettingsButton.Content = _localizer.T("SaveSettings");
@@ -1979,9 +1973,7 @@ public partial class MainWindow : Window
         return engine switch
         {
             OcrEngineKind.PaddleOcr => new PaddleOcrService(_settings),
-            OcrEngineKind.RapidOcr => new HttpOcrService(_settings, "RapidOCR", settings => settings.RapidOcrEndpoint),
             OcrEngineKind.LunaOcr => new HttpOcrService(_settings, "LunaOCR", settings => settings.LunaOcrEndpoint),
-            OcrEngineKind.MangaOcr => new HttpOcrService(_settings, "MangaOCR", settings => settings.MangaOcrEndpoint),
             _ => new TesseractOcrService(_settings)
         };
     }
@@ -2018,9 +2010,7 @@ public partial class MainWindow : Window
         [
             new OcrEngineOption(OcrEngineKind.Tesseract, "Tesseract OCR"),
             new OcrEngineOption(OcrEngineKind.PaddleOcr, "PaddleOCR"),
-            new OcrEngineOption(OcrEngineKind.RapidOcr, "RapidOCR"),
-            new OcrEngineOption(OcrEngineKind.LunaOcr, "LunaOCR"),
-            new OcrEngineOption(OcrEngineKind.MangaOcr, "MangaOCR")
+            new OcrEngineOption(OcrEngineKind.LunaOcr, "LunaOCR")
         ];
     }
 

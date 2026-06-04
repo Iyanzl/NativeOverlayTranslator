@@ -4,12 +4,12 @@ using NativeOverlayTranslator.Services;
 
 var failureLines = new[]
 {
-    new OcrTextLine("RapidOCR unavailable: connection refused", new Rect(0, 0, 10, 10), 1)
+    new OcrTextLine("LunaOCR unavailable: connection refused", new Rect(0, 0, 10, 10), 1)
 };
 
 Assert(OcrFailureDetector.IsFailureResult(failureLines), "unavailable result is detected");
 Assert(
-    OcrFailureDetector.BuildFailureMessage("RapidOCR", failureLines).Contains("RapidOCR unavailable", StringComparison.Ordinal),
+    OcrFailureDetector.BuildFailureMessage("LunaOCR", failureLines).Contains("LunaOCR unavailable", StringComparison.Ordinal),
     "failure message includes backend error");
 
 var normalLines = new[]
@@ -21,12 +21,17 @@ Assert(!OcrFailureDetector.IsFailureResult(normalLines), "normal OCR text is not
 
 var settings = new AppSettings
 {
-    LunaOcrEndpoint = ""
+    LunaOcrEndpoint = "",
+    OcrEngine = (OcrEngineKind)2,
+    HoverOcrEngine = (OcrEngineKind)4
 };
 settings.EnsureDefaults();
 
 Assert(settings.LunaOcrEndpoint == "http://127.0.0.1:8871/ocr", "LunaOCR endpoint default is restored");
 Assert(Enum.IsDefined(typeof(OcrEngineKind), "LunaOcr"), "LunaOCR engine option exists");
+Assert(settings.OcrEngine == OcrEngineKind.LunaOcr, "legacy removed OCR engine falls back to LunaOCR");
+Assert(settings.HoverOcrEngine == OcrEngineKind.LunaOcr, "legacy removed hover OCR engine falls back to LunaOCR");
+Assert(Enum.GetNames<OcrEngineKind>().Length == 3, "only three OCR engines remain");
 
 Console.WriteLine("OCR service tests passed.");
 
