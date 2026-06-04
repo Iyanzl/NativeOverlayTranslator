@@ -377,34 +377,17 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (lines.Count == 0)
-            {
-                StatusText.Text = $"{mode}: {_ocrService.Name} returned 0 OCR line(s).";
-                return;
-            }
-
             var filtered = lines
                 .Where(line => line.Bounds.Width > 8 && line.Bounds.Height > 7 && line.Confidence >= 0.10)
                 .Where(line => !IsAlreadyTranslatedOcrLine(line))
                 .ToList();
             Diagnostics.Log($"RunOcr filtered mode='{mode}' lines={filtered.Count}");
-            if (filtered.Count == 0)
-            {
-                StatusText.Text = $"{mode}: {_ocrService.Name} recognized {lines.Count} line(s), but all were skipped by size/repeat filters.";
-                return;
-            }
-
             var sourceLanguage = NormalizeSourceLanguage(_settings.SourceLanguage);
             if (sourceLanguage != "auto")
             {
                 filtered = filtered
                     .Where(line => TextTranslationFilter.ShouldTranslate(line.Text, _settings.SourceLanguage, _settings.TargetLanguage))
                     .ToList();
-                if (filtered.Count == 0)
-                {
-                    StatusText.Text = $"{mode}: {_ocrService.Name} recognized {lines.Count} line(s), but all were skipped by source-language filters.";
-                    return;
-                }
             }
 
             var failed = 0;

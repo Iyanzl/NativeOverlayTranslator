@@ -5,7 +5,6 @@ import json
 import os
 import tempfile
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from PIL import Image
@@ -27,7 +26,6 @@ def _get_ocr() -> Any:
 
 
 def recognize(image_bytes: bytes) -> list[dict[str, Any]]:
-    started_at = time.perf_counter()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as image_file:
         image_file.write(image_bytes)
         image_path = image_file.name
@@ -39,10 +37,6 @@ def recognize(image_bytes: bytes) -> list[dict[str, Any]]:
 
         with Image.open(image_path) as image:
             width, height = image.size
-
-        elapsed = time.perf_counter() - started_at
-        preview = text.replace("\r", " ").replace("\n", " ")[:120]
-        print(f"[MangaOCR] recognized chars={len(text)} image={width}x{height} elapsed={elapsed:.3f}s text='{preview}'")
 
         return [
             {
