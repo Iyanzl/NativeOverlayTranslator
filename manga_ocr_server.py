@@ -7,6 +7,7 @@ import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from PIL import Image
 
 
 _ocr_lock = threading.Lock()
@@ -33,11 +34,14 @@ def recognize(image_bytes: bytes) -> list[dict[str, Any]]:
         if not text:
             return []
 
+        with Image.open(image_path) as image:
+            width, height = image.size
+
         return [
             {
                 "text": text,
                 "confidence": 0.9,
-                "box": [0.0, 0.0, 1.0, 1.0],
+                "box": [0.0, 0.0, float(width), float(height)],
             }
         ]
     finally:
