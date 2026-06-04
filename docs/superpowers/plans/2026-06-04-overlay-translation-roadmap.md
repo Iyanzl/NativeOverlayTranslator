@@ -53,15 +53,15 @@ User starts `start_lunaocr.bat`, enables hover translate, and confirms hover res
 - Modify: `ImageTranslationWindow.xaml.cs`
 - Optionally create: `Services/ImageOverlayStyleSampler.cs`
 
-- [ ] **Step 1: Improve background sampling**
+- [x] **Step 1: Improve background sampling**
 
 Sample border pixels and inner low-text pixels separately, then use the border/background estimate for overlay fill.
 
-- [ ] **Step 2: Improve foreground color estimation**
+- [x] **Step 2: Improve foreground color estimation**
 
 Estimate original text color from high-contrast pixels inside OCR bounds instead of choosing only black or white from background luminance.
 
-- [ ] **Step 3: Improve font matching**
+- [x] **Step 3: Improve font matching**
 
 Remove forced semibold by default, size text from OCR box height, and only bold when source pixels suggest thick strokes.
 

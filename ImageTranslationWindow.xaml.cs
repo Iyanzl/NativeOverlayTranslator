@@ -188,7 +188,9 @@ public partial class ImageTranslationWindow : Window
 
     private void AddInlineOverlay(OcrTextLine line, string translation)
     {
-        var style = SampleStyle(line.Bounds);
+        var style = _bitmap is null
+            ? new ImageOverlayStyle(Color.FromArgb(230, 20, 20, 20), Color.White, FontWeights.Normal)
+            : ImageOverlayStyleSampler.Sample(_bitmap, line.Bounds);
         var overlayWidth = EstimateOverlayWidth(line.Bounds, translation);
         var overlayHeight = EstimateOverlayHeight(line.Bounds, translation);
         var box = new System.Windows.Controls.TextBox
@@ -203,7 +205,7 @@ public partial class ImageTranslationWindow : Window
             Background = ToBrush(style.Background),
             Foreground = ToBrush(style.Foreground),
             FontSize = EstimateFittedFontSize(line.Bounds, translation, overlayWidth, overlayHeight),
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = style.FontWeight,
             MinWidth = Math.Max(24, line.Bounds.Width),
             Width = overlayWidth,
             Height = overlayHeight,
@@ -244,91 +246,6 @@ public partial class ImageTranslationWindow : Window
         Canvas.SetLeft(box, Math.Max(0, line.Bounds.X));
         Canvas.SetTop(box, Math.Max(0, line.Bounds.Y));
         OverlayCanvas.Children.Add(box);
-    }
-
-    private OverlayStyle SampleStyle(Rect bounds)
-    {
-        if (_bitmap is null)
-        {
-            return new OverlayStyle(Color.FromArgb(230, 20, 20, 20), Color.White);
-        }
-
-        var rect = Clamp(bounds);
-        var bg = MedianBackgroundColor(rect);
-        var luminance = (0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B) / 255.0;
-        var foreground = luminance < 0.48 ? Color.WhiteSmoke : Color.FromArgb(20, 20, 20);
-        var background = Color.FromArgb(255, bg.R, bg.G, bg.B);
-        return new OverlayStyle(background, foreground);
-    }
-
-    private Rectangle Clamp(Rect bounds)
-    {
-        var x = Math.Clamp((int)Math.Floor(bounds.X), 0, Math.Max(0, _bitmap!.Width - 1));
-        var y = Math.Clamp((int)Math.Floor(bounds.Y), 0, Math.Max(0, _bitmap.Height - 1));
-        var w = Math.Clamp((int)Math.Ceiling(bounds.Width), 1, _bitmap.Width - x);
-        var h = Math.Clamp((int)Math.Ceiling(bounds.Height), 1, _bitmap.Height - y);
-        return new Rectangle(x, y, w, h);
-    }
-
-    private Color AverageBorderColor(Rectangle rect)
-    {
-        var samples = new List<Color>();
-        var step = Math.Max(1, Math.Min(rect.Width, rect.Height) / 5);
-        for (var x = rect.Left; x < rect.Right; x += step)
-        {
-            samples.Add(_bitmap!.GetPixel(x, rect.Top));
-            samples.Add(_bitmap.GetPixel(x, Math.Max(rect.Top, rect.Bottom - 1)));
-        }
-
-        for (var y = rect.Top; y < rect.Bottom; y += step)
-        {
-            samples.Add(_bitmap!.GetPixel(rect.Left, y));
-            samples.Add(_bitmap.GetPixel(Math.Max(rect.Left, rect.Right - 1), y));
-        }
-
-        if (samples.Count == 0)
-        {
-            return Color.FromArgb(20, 20, 20);
-        }
-
-        return Color.FromArgb(
-            (int)samples.Average(c => c.R),
-            (int)samples.Average(c => c.G),
-            (int)samples.Average(c => c.B));
-    }
-
-    private Color MedianBackgroundColor(Rectangle rect)
-    {
-        var samples = new List<Color>();
-        var expanded = new Rectangle(
-            Math.Max(0, rect.Left - 2),
-            Math.Max(0, rect.Top - 2),
-            Math.Min(_bitmap!.Width - Math.Max(0, rect.Left - 2), rect.Width + 4),
-            Math.Min(_bitmap.Height - Math.Max(0, rect.Top - 2), rect.Height + 4));
-        var step = Math.Max(1, Math.Min(expanded.Width, expanded.Height) / 6);
-        for (var y = expanded.Top; y < expanded.Bottom; y += step)
-        {
-            for (var x = expanded.Left; x < expanded.Right; x += step)
-            {
-                samples.Add(_bitmap.GetPixel(x, y));
-            }
-        }
-
-        if (samples.Count == 0)
-        {
-            return AverageBorderColor(rect);
-        }
-
-        static int Median(IEnumerable<int> values)
-        {
-            var ordered = values.Order().ToList();
-            return ordered[ordered.Count / 2];
-        }
-
-        return Color.FromArgb(
-            Median(samples.Select(c => (int)c.R)),
-            Median(samples.Select(c => (int)c.G)),
-            Median(samples.Select(c => (int)c.B)));
     }
 
     private static double EstimateFontSize(Rect bounds)
@@ -487,8 +404,6 @@ public partial class ImageTranslationWindow : Window
         visual.UpdateLayout();
         return visual;
     }
-
-    private sealed record OverlayStyle(Color Background, Color Foreground);
 
     private sealed record DragState(Point Start, double Left, double Top, string SourceText);
 
