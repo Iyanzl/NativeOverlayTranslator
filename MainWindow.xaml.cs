@@ -59,7 +59,7 @@ public partial class MainWindow : Window
         _translator = new OpenAiCompatibleTranslationService(_settings);
         _ocrService = CreateOcrService();
         _hoverOcrService = CreateOcrService(_settings.HoverOcrEngine);
-        _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+        _hoverTimer = new DispatcherTimer { Interval = HoverPerformancePolicy.TimerInterval };
         _hoverTimer.Tick += HoverTimer_OnTick;
         _overlayFollowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
         _overlayFollowTimer.Tick += (_, _) => UpdateAnchoredOverlays();
@@ -536,7 +536,7 @@ public partial class MainWindow : Window
             var region = GetHoverCaptureRegion(point.X, point.Y, _settings.HoverMode);
             Diagnostics.Log($"Hover capture point=({point.X},{point.Y}) mode={_settings.HoverMode} region={FormatRect(region)}");
             HideHoverOverlaysForCapture(region);
-            await Task.Delay(35, token);
+            await Task.Delay(HoverPerformancePolicy.CaptureDelay, token);
 
             var lines = await CaptureHoverTextAsync(region, token);
             Diagnostics.Log($"Hover raw lines={lines.Count}");
@@ -861,24 +861,12 @@ public partial class MainWindow : Window
 
     private static TimeSpan GetHoverPointerStableDuration(HoverMode mode)
     {
-        return TimeSpan.FromMilliseconds(mode switch
-        {
-            HoverMode.Word => 650,
-            HoverMode.Phrase => 850,
-            HoverMode.Sentence => 1100,
-            _ => 850
-        });
+        return HoverPerformancePolicy.PointerStableDuration(mode);
     }
 
     private static uint GetHoverInputQuietMilliseconds(HoverMode mode)
     {
-        return mode switch
-        {
-            HoverMode.Word => 450,
-            HoverMode.Phrase => 700,
-            HoverMode.Sentence => 900,
-            _ => 700
-        };
+        return HoverPerformancePolicy.InputQuietMilliseconds(mode);
     }
 
     private bool HasActiveHoverOverlayNear(System.Drawing.Point point)
@@ -1208,12 +1196,12 @@ public partial class MainWindow : Window
             _pendingHoverText = text;
             _pendingHoverBounds = bounds;
             _pendingHoverStableCount = 1;
-            return false;
+            return _pendingHoverStableCount >= HoverPerformancePolicy.RequiredStableTicks(mode);
         }
 
         _pendingHoverStableCount++;
         _pendingHoverBounds = AverageBounds(_pendingHoverBounds, bounds);
-        var requiredStableTicks = mode == HoverMode.Word ? 2 : 3;
+        var requiredStableTicks = HoverPerformancePolicy.RequiredStableTicks(mode);
         return _pendingHoverStableCount >= requiredStableTicks;
     }
 
@@ -1411,17 +1399,11 @@ public partial class MainWindow : Window
     private static Rect GetHoverCaptureRegion(int x, int y, HoverMode mode)
     {
         var screen = Forms.SystemInformation.VirtualScreen;
-        var rect = mode switch
-        {
-            HoverMode.Word => new Rect(x - 90, y - 28, 220, 64),
-            HoverMode.Sentence => new Rect(x - 260, y - 58, 1180, 220),
-            _ => new Rect(x - 80, y - 34, 520, 130)
-        };
-        var left = Math.Clamp(rect.Left, screen.Left, screen.Right - 1);
-        var top = Math.Clamp(rect.Top, screen.Top, screen.Bottom - 1);
-        var right = Math.Clamp(rect.Right, left + 1, screen.Right);
-        var bottom = Math.Clamp(rect.Bottom, top + 1, screen.Bottom);
-        return new Rect(left, top, right - left, bottom - top);
+        return HoverPerformancePolicy.CaptureRegion(
+            x,
+            y,
+            mode,
+            new Rect(screen.Left, screen.Top, screen.Width, screen.Height));
     }
 
     private static double GetCurrentDpiScale()

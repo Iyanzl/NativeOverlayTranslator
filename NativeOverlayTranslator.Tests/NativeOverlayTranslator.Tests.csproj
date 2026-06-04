@@ -15,6 +15,7 @@
     <Compile Include="..\Models\OcrEngineKind.cs" Link="Models\OcrEngineKind.cs" />
     <Compile Include="..\Models\OcrTextLine.cs" Link="Models\OcrTextLine.cs" />
     <Compile Include="..\Services\OcrFailureDetector.cs" Link="Services\OcrFailureDetector.cs" />
+    <Compile Include="..\Services\HoverPerformancePolicy.cs" Link="Services\HoverPerformancePolicy.cs" />
   </ItemGroup>
 
 </Project>

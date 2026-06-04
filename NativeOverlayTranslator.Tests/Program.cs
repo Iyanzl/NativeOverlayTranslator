@@ -33,6 +33,15 @@ Assert(settings.OcrEngine == OcrEngineKind.LunaOcr, "legacy removed OCR engine f
 Assert(settings.HoverOcrEngine == OcrEngineKind.LunaOcr, "legacy removed hover OCR engine falls back to LunaOCR");
 Assert(Enum.GetNames<OcrEngineKind>().Length == 3, "only three OCR engines remain");
 
+Assert(HoverPerformancePolicy.TimerInterval == TimeSpan.FromMilliseconds(180), "hover timer interval is fast");
+Assert(HoverPerformancePolicy.PointerStableDuration(HoverMode.Word) <= TimeSpan.FromMilliseconds(220), "word hover stabilizes quickly");
+Assert(HoverPerformancePolicy.PointerStableDuration(HoverMode.Phrase) <= TimeSpan.FromMilliseconds(320), "phrase hover stabilizes quickly");
+Assert(HoverPerformancePolicy.InputQuietMilliseconds(HoverMode.Word) <= 180, "word hover input quiet window is short");
+Assert(HoverPerformancePolicy.RequiredStableTicks(HoverMode.Word) == 1, "word hover needs one OCR confirmation");
+Assert(HoverPerformancePolicy.RequiredStableTicks(HoverMode.Phrase) == 2, "phrase hover needs two OCR confirmations");
+var wordRegion = HoverPerformancePolicy.CaptureRegion(500, 500, HoverMode.Word, new Rect(0, 0, 1920, 1080));
+Assert(wordRegion.Width <= 180 && wordRegion.Height <= 56, "word hover OCR region is compact");
+
 Console.WriteLine("OCR service tests passed.");
 
 static void Assert(bool condition, string message)
