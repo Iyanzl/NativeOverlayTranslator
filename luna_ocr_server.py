@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import sys
 import tempfile
 import threading
 import time
@@ -14,37 +13,10 @@ from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL_DIR = ROOT_DIR / "ocr_models" / "luna-default-scale5"
-DEFAULT_LUNA_HOME = Path(r"D:\Program Files\LunaTranslator")
 
 _ocr_lock = threading.Lock()
 _ocr: Any | None = None
 _qimage_type: Any | None = None
-
-
-def _configure_luna_runtime() -> Path:
-    luna_home = Path(os.environ.get("LUNA_TRANSLATOR_HOME", str(DEFAULT_LUNA_HOME)))
-    runtime_dir = luna_home / "files" / "runtime31264"
-    dll_dir = luna_home / "files" / "DLL64"
-    module_dir = luna_home / "LunaTranslator"
-
-    missing = [path for path in (runtime_dir, dll_dir, module_dir) if not path.exists()]
-    if missing:
-        raise FileNotFoundError(
-            "LunaTranslator runtime was not found: " + ", ".join(str(path) for path in missing)
-        )
-
-    for path in (str(module_dir), str(runtime_dir)):
-        if path not in sys.path:
-            sys.path.insert(0, path)
-
-    os.environ["PATH"] = str(dll_dir) + os.pathsep + str(runtime_dir) + os.pathsep + os.environ.get("PATH", "")
-    if hasattr(os, "add_dll_directory"):
-        os.add_dll_directory(str(dll_dir))
-        os.add_dll_directory(str(runtime_dir))
-
-    # Luna's gobject.GetDllpath resolves files/DLL64 relative to the process cwd.
-    os.chdir(luna_home)
-    return luna_home
 
 
 def _get_ocr() -> Any:
@@ -53,9 +25,7 @@ def _get_ocr() -> Any:
         if _ocr is not None:
             return _ocr
 
-        _configure_luna_runtime()
-        from qtsymbols import QImage
-        from CVUtils import LocalOCR
+        from portable_luna_ocr import LocalOCR, QImage
 
         model_dir = Path(os.environ.get("LUNA_OCR_MODEL_DIR", str(DEFAULT_MODEL_DIR)))
         det_path = model_dir / "det.onnx"

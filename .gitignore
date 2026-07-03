@@ -28,3 +28,7 @@ Thumbs.db
 Desktop.ini
 *.tmp
 *.bak
+
+# Python caches
+__pycache__/
+*.py[cod]
