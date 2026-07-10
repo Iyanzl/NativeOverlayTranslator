@@ -7,6 +7,8 @@ namespace NativeOverlayTranslator.Services;
 public sealed class ClipboardDoubleCopyWatcher : IDisposable
 {
     private readonly Window _owner;
+    private readonly SemaphoreSlim _readGate = new(1, 1);
+    private readonly CancellationTokenSource _disposeCts = new();
     private HwndSource? _source;
     private string? _lastText;
     private DateTimeOffset _lastSeenAt;
@@ -37,27 +39,47 @@ public sealed class ClipboardDoubleCopyWatcher : IDisposable
         return 0;
     }
 
-    private void HandleClipboardUpdate()
+    private async void HandleClipboardUpdate()
     {
-        if (!Clipboard.ContainsText())
+        var entered = false;
+        try
         {
-            return;
-        }
+            await _readGate.WaitAsync(_disposeCts.Token);
+            entered = true;
+            var text = await ClipboardTextReader.TryReadTextAsync(ReadClipboardText, _disposeCts.Token);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
 
-        var text = Clipboard.GetText().Trim();
-        if (string.IsNullOrWhiteSpace(text))
+            var now = DateTimeOffset.Now;
+            if (text == _lastText && now - _lastSeenAt < TimeSpan.FromMilliseconds(1400))
+            {
+                DoubleCopied?.Invoke(this, text);
+            }
+
+            _lastText = text;
+            _lastSeenAt = now;
+        }
+        catch (OperationCanceledException)
         {
-            return;
         }
-
-        var now = DateTimeOffset.Now;
-        if (text == _lastText && now - _lastSeenAt < TimeSpan.FromMilliseconds(1400))
+        catch (Exception ex)
         {
-            DoubleCopied?.Invoke(this, text);
+            Diagnostics.Log($"Clipboard update failed error='{ex.Message}'");
         }
+        finally
+        {
+            if (entered)
+            {
+                _readGate.Release();
+            }
+        }
+    }
 
-        _lastText = text;
-        _lastSeenAt = now;
+    private static string? ReadClipboardText()
+    {
+        return Clipboard.ContainsText() ? Clipboard.GetText() : null;
     }
 
     public void Dispose()
@@ -74,6 +96,8 @@ public sealed class ClipboardDoubleCopyWatcher : IDisposable
         }
 
         _source?.RemoveHook(WndProc);
+        _disposeCts.Cancel();
+        _disposeCts.Dispose();
         _disposed = true;
     }
 }

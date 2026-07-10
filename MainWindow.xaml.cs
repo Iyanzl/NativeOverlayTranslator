@@ -587,7 +587,10 @@ public partial class MainWindow : Window
             }
 
             var displayMode = _settings.HoverMode;
-            if (_settings.HoverTooltipTranslateEnabled && !_settings.OcrDebugEnabled)
+            if (HoverPerformancePolicy.ShouldAppendTooltip(
+                    _settings.HoverMode,
+                    _settings.HoverTooltipTranslateEnabled,
+                    _settings.OcrDebugEnabled))
             {
                 var withTooltip = await AppendTooltipTranslationAsync(translated, line, point.X, point.Y, CancellationToken.None);
                 if (!string.Equals(withTooltip, translated, StringComparison.Ordinal))
@@ -1341,22 +1344,6 @@ public partial class MainWindow : Window
             })
             .FirstOrDefault();
 
-        if (mode == HoverMode.Word)
-        {
-            if (closest is null)
-            {
-                return null;
-            }
-
-            if (!closest.Bounds.Contains(new System.Windows.Point(x, y)) &&
-                DistanceFromRect(closest.Bounds, x, y) > GetHoverPickDistance(closest.Bounds, mode))
-            {
-                return null;
-            }
-
-            return closest;
-        }
-
         if (closest is null)
         {
             return null;
@@ -1368,7 +1355,8 @@ public partial class MainWindow : Window
             return null;
         }
 
-        return closest;
+        var selected = HoverTextSelector.SelectHoverText(closest, x, mode);
+        return string.IsNullOrWhiteSpace(selected.Text) ? null : selected;
     }
 
     private static double GetHoverPickDistance(Rect bounds, HoverMode mode)

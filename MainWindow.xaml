@@ -79,7 +79,7 @@
                                      TextChanged="HoverDisplaySecondsBox_OnTextChanged"
                                      LostFocus="HoverDisplaySecondsBox_OnLostFocus" />
                         </Grid>
-                        <CheckBox x:Name="HoverTooltipToggle" Content="Translate hover popups/tooltips" Margin="0,0,0,10" Checked="HoverTooltipToggle_OnChanged" Unchecked="HoverTooltipToggle_OnChanged" />
+                        <CheckBox x:Name="HoverTooltipToggle" Content="Sentence mode: translate hover popups/tooltips" Margin="0,0,0,10" Checked="HoverTooltipToggle_OnChanged" Unchecked="HoverTooltipToggle_OnChanged" />
                         <CheckBox x:Name="ClipboardToggle" Content="Enable Ctrl+C twice translate" Margin="0,0,0,8" Checked="ClipboardToggle_OnChanged" Unchecked="ClipboardToggle_OnChanged" />
                         <Grid Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>

@@ -17,7 +17,10 @@
     <Compile Include="..\Models\OcrTextLine.cs" Link="Models\OcrTextLine.cs" />
     <Compile Include="..\Services\OcrFailureDetector.cs" Link="Services\OcrFailureDetector.cs" />
     <Compile Include="..\Services\HoverPerformancePolicy.cs" Link="Services\HoverPerformancePolicy.cs" />
+    <Compile Include="..\Services\HoverTextSelector.cs" Link="Services\HoverTextSelector.cs" />
+    <Compile Include="..\Services\ClipboardTextReader.cs" Link="Services\ClipboardTextReader.cs" />
     <Compile Include="..\Services\ImageOverlayStyleSampler.cs" Link="Services\ImageOverlayStyleSampler.cs" />
+    <Compile Include="..\Services\TextTranslationFilter.cs" Link="Services\TextTranslationFilter.cs" />
   </ItemGroup>
 
 </Project>

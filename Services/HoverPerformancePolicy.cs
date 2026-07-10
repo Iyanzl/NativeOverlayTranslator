@@ -42,6 +42,11 @@ public static class HoverPerformancePolicy
         };
     }
 
+    public static bool ShouldAppendTooltip(HoverMode mode, bool enabled, bool debugEnabled)
+    {
+        return enabled && !debugEnabled && mode == HoverMode.Sentence;
+    }
+
     public static Rect CaptureRegion(int x, int y, HoverMode mode, Rect screen)
     {
         var rect = mode switch
