@@ -16,6 +16,8 @@ public partial class MainWindow : Window
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly TranslationMemoryStore _memoryStore = new();
+    private readonly TargetWindowStateService _targetWindowState = new();
+    private readonly TargetWindowEventWatcher _targetWindowWatcher = new();
     private readonly ObservableCollection<OverlayEntry> _entries = [];
     private readonly ObservableCollection<HotkeyEditorItem> _hotkeyEditors = [];
     private readonly List<OverlayWindow> _overlayWindows = [];
@@ -63,6 +65,7 @@ public partial class MainWindow : Window
         _hoverTimer.Tick += HoverTimer_OnTick;
         _overlayFollowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
         _overlayFollowTimer.Tick += (_, _) => UpdateAnchoredOverlays();
+        _targetWindowWatcher.Changed += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateAnchoredOverlays));
         OverlayList.ItemsSource = _entries;
         HotkeyList.ItemsSource = _hotkeyEditors;
 
@@ -132,6 +135,7 @@ public partial class MainWindow : Window
         _clipboardWatcher?.Dispose();
         _notifyIcon?.Dispose();
         _overlayFollowTimer.Stop();
+        _targetWindowWatcher.Dispose();
         _hoverCts?.Dispose();
         _ocrCts?.Cancel();
         _ocrCts?.Dispose();
@@ -179,6 +183,7 @@ public partial class MainWindow : Window
     private void SetTarget(TargetWindowInfo? target)
     {
         SaveCurrentOverlaySet();
+        _targetWindowWatcher.Stop();
         ClearOverlayWindows();
         _entries.Clear();
         _selectedTarget = target;
@@ -191,6 +196,7 @@ public partial class MainWindow : Window
         }
 
         Diagnostics.Log($"SetTarget process='{target.ProcessName}' pid={target.ProcessId} handle={target.Handle} title='{target.Title}' path='{target.ProcessPath}'");
+        _targetWindowWatcher.Start(target);
         _settings.LastTargetProcessPath = target.ProcessPath;
         _settingsStore.SaveSettings(_settings);
         SelectedWindowText.Text = $"{target.ProcessName} | pid {target.ProcessId}\n{target.Title}\n{target.ProcessPath}";
@@ -198,6 +204,11 @@ public partial class MainWindow : Window
         var processKey = SettingsStore.BuildProcessKey(target);
         foreach (var entry in _settingsStore.LoadOverlays(processKey))
         {
+            if (!entry.IsTargetAnchored)
+            {
+                ApplyTargetAnchor(entry);
+            }
+
             AddOverlay(entry, showWindow: true);
         }
 
@@ -1051,7 +1062,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var overlay = new OverlayWindow(entry);
+        var overlay = new OverlayWindow(entry, _selectedTarget?.Handle ?? 0);
         overlay.EntryChanged += (_, _) =>
         {
             UpdateAnchorFromScreen(entry);
@@ -1061,6 +1072,7 @@ public partial class MainWindow : Window
         };
         _overlayWindows.Add(overlay);
         overlay.Show();
+        UpdateAnchoredOverlays();
         Diagnostics.Log($"Overlay shown visible={overlay.IsVisible} left={overlay.Left:0.##} top={overlay.Top:0.##} width={overlay.Width:0.##} height={overlay.Height:0.##}");
     }
 
@@ -1119,68 +1131,74 @@ public partial class MainWindow : Window
 
     private void ApplyTargetAnchor(OverlayEntry entry)
     {
-        if (_selectedTarget is null || !NativeMethods.GetWindowRect(_selectedTarget.Handle, out var rect))
+        if (_selectedTarget is null)
+        {
+            entry.IsTargetAnchored = false;
+            return;
+        }
+
+        var state = _targetWindowState.Read(_selectedTarget);
+        if (!state.IsValid)
         {
             entry.IsTargetAnchored = false;
             return;
         }
 
         entry.IsTargetAnchored = true;
-        entry.AnchorBounds = new Rect(
-            entry.Bounds.X - rect.Left,
-            entry.Bounds.Y - rect.Top,
-            entry.Bounds.Width,
-            entry.Bounds.Height);
+        entry.AnchorUsesClientArea = true;
+        entry.AnchorBounds = OverlayAnchorPolicy.CreateAnchor(entry.Bounds, state.ClientBounds);
     }
 
     private void UpdateAnchorFromScreen(OverlayEntry entry)
     {
-        if (!entry.IsTargetAnchored || _selectedTarget is null || !NativeMethods.GetWindowRect(_selectedTarget.Handle, out var rect))
+        if (!entry.IsTargetAnchored || _selectedTarget is null)
         {
             return;
         }
 
-        entry.AnchorBounds = new Rect(
-            entry.Bounds.X - rect.Left,
-            entry.Bounds.Y - rect.Top,
-            entry.Bounds.Width,
-            entry.Bounds.Height);
+        var state = _targetWindowState.Read(_selectedTarget);
+        if (!state.IsValid)
+        {
+            return;
+        }
+
+        var referenceBounds = entry.AnchorUsesClientArea ? state.ClientBounds : state.WindowBounds;
+        entry.AnchorBounds = OverlayAnchorPolicy.CreateAnchor(entry.Bounds, referenceBounds);
     }
 
     private void UpdateAnchoredOverlays()
     {
-        if (_selectedTarget is null || !NativeMethods.GetWindowRect(_selectedTarget.Handle, out var rect))
+        if (_selectedTarget is null)
         {
             return;
         }
 
+        var state = _targetWindowState.Read(_selectedTarget);
+        var shouldDisplay = OverlayAnchorPolicy.ShouldDisplay(
+            state.IsValid,
+            state.IsVisible,
+            state.IsMinimized,
+            state.ForegroundProcessId,
+            _selectedTarget.ProcessId,
+            Environment.ProcessId);
+
         foreach (var overlay in _overlayWindows)
         {
             var entry = overlay.Entry;
-            if (!entry.IsTargetAnchored)
+            if (state.IsValid && entry.IsTargetAnchored)
             {
-                continue;
+                var referenceBounds = entry.AnchorUsesClientArea ? state.ClientBounds : state.WindowBounds;
+                overlay.SetScreenBounds(OverlayAnchorPolicy.ResolveScreenBounds(entry.AnchorBounds, referenceBounds));
             }
 
-            if (!overlay.IsVisible)
-            {
-                overlay.Show();
-            }
-
-            overlay.SetScreenBounds(new Rect(
-                rect.Left + entry.AnchorBounds.X,
-                rect.Top + entry.AnchorBounds.Y,
-                entry.AnchorBounds.Width,
-                entry.AnchorBounds.Height));
+            overlay.SetTargetVisible(shouldDisplay);
         }
 
-        if (_hoverOverlay?.Entry is { IsTargetAnchored: true } hoverEntry)
+        if (state.IsValid && _hoverOverlay?.Entry is { IsTargetAnchored: true } hoverEntry)
         {
-            _hoverOverlay.SetScreenBounds(new Rect(
-                rect.Left + hoverEntry.AnchorBounds.X,
-                rect.Top + hoverEntry.AnchorBounds.Y,
-                hoverEntry.AnchorBounds.Width,
-                hoverEntry.AnchorBounds.Height));
+            var referenceBounds = hoverEntry.AnchorUsesClientArea ? state.ClientBounds : state.WindowBounds;
+            _hoverOverlay.SetScreenBounds(OverlayAnchorPolicy.ResolveScreenBounds(hoverEntry.AnchorBounds, referenceBounds));
+            _hoverOverlay.SetTargetVisible(shouldDisplay);
         }
     }
 

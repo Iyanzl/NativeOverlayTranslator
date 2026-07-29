@@ -127,6 +127,36 @@ stabilizer.Clear();
 var clearedStyle = stabilizer.Resolve("Stable color", new Rect(22, 9, 101, 24), noisyRepeatedStyle);
 Assert(clearedStyle == noisyRepeatedStyle, "loading a new image can clear stabilized styles");
 
+var sourceScreenBounds = new Rect(520, 340, 180, 28);
+var originalWindowBounds = new Rect(80, 60, 1000, 700);
+var originalClientBounds = new Rect(88, 92, 984, 660);
+var clientAnchor = OverlayAnchorPolicy.CreateAnchor(sourceScreenBounds, originalClientBounds);
+Assert(clientAnchor == new Rect(432, 248, 180, 28), "new overlays use target client coordinates");
+var movedClientBounds = new Rect(288, 242, 984, 660);
+Assert(
+    OverlayAnchorPolicy.ResolveScreenBounds(clientAnchor, movedClientBounds) == new Rect(720, 490, 180, 28),
+    "client anchors follow target window movement");
+var legacyAnchor = OverlayAnchorPolicy.CreateAnchor(sourceScreenBounds, originalWindowBounds);
+Assert(
+    OverlayAnchorPolicy.ResolveScreenBounds(legacyAnchor, new Rect(280, 210, 1000, 700)) == new Rect(720, 490, 180, 28),
+    "legacy frame anchors remain compatible");
+
+Assert(
+    OverlayAnchorPolicy.ShouldDisplay(targetValid: true, targetVisible: true, targetMinimized: false, foregroundProcessId: 20, targetProcessId: 20, translatorProcessId: 99),
+    "overlays show while the target process is foreground");
+Assert(
+    OverlayAnchorPolicy.ShouldDisplay(targetValid: true, targetVisible: true, targetMinimized: false, foregroundProcessId: 99, targetProcessId: 20, translatorProcessId: 99),
+    "overlays remain available while editing from the translator process");
+Assert(
+    !OverlayAnchorPolicy.ShouldDisplay(targetValid: true, targetVisible: true, targetMinimized: false, foregroundProcessId: 30, targetProcessId: 20, translatorProcessId: 99),
+    "overlays hide when an unrelated process becomes foreground");
+Assert(
+    !OverlayAnchorPolicy.ShouldDisplay(targetValid: true, targetVisible: true, targetMinimized: true, foregroundProcessId: 20, targetProcessId: 20, translatorProcessId: 99),
+    "overlays hide when the target is minimized");
+Assert(
+    !OverlayAnchorPolicy.ShouldDisplay(targetValid: false, targetVisible: true, targetMinimized: false, foregroundProcessId: 20, targetProcessId: 20, translatorProcessId: 99),
+    "overlays hide when the target handle is invalid");
+
 Console.WriteLine("OCR service tests passed.");
 
 static void Assert(bool condition, string message)

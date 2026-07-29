@@ -9,15 +9,19 @@ namespace NativeOverlayTranslator;
 
 public partial class OverlayWindow : Window
 {
+    private readonly nint _targetHandle;
     private bool _isUpdating;
     private bool _isProgrammaticMove;
+    private bool _hiddenForTargetState;
+    private Rect _lastProgrammaticBounds = Rect.Empty;
     public OverlayEntry Entry { get; }
 
     public event EventHandler? EntryChanged;
 
-    public OverlayWindow(OverlayEntry entry)
+    public OverlayWindow(OverlayEntry entry, nint targetHandle = 0)
     {
         Entry = entry;
+        _targetHandle = targetHandle;
         InitializeComponent();
         _isUpdating = true;
         TranslationBox.Text = entry.TranslatedText;
@@ -32,6 +36,7 @@ public partial class OverlayWindow : Window
         Width = Math.Max(displayBounds.Width, 18);
         Height = Math.Max(displayBounds.Height, 14);
         FitTextToBounds();
+        SourceInitialized += (_, _) => BindTargetOwner();
         Loaded += OnLoaded;
         LocationChanged += (_, _) => PersistBounds();
         SizeChanged += (_, _) =>
@@ -39,6 +44,29 @@ public partial class OverlayWindow : Window
             FitTextToBounds();
             PersistBounds();
         };
+    }
+
+    public void SetTargetVisible(bool visible)
+    {
+        if (!visible)
+        {
+            _hiddenForTargetState = true;
+            if (IsVisible)
+            {
+                Hide();
+            }
+
+            return;
+        }
+
+        if (_hiddenForTargetState)
+        {
+            _hiddenForTargetState = false;
+            if (!IsVisible)
+            {
+                Show();
+            }
+        }
     }
 
     public void SetEditMode(bool enabled)
@@ -56,6 +84,23 @@ public partial class OverlayWindow : Window
     {
         Diagnostics.Log($"OverlayWindow loaded left={Left:0.##} top={Top:0.##} width={Width:0.##} height={Height:0.##} text='{Entry.TranslatedText}'");
         SetEditMode(!Entry.IsLocked);
+    }
+
+    private void BindTargetOwner()
+    {
+        if (_targetHandle == 0 || !NativeMethods.IsWindow(_targetHandle))
+        {
+            return;
+        }
+
+        try
+        {
+            new WindowInteropHelper(this).Owner = _targetHandle;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"Overlay owner binding failed target={_targetHandle} error='{ex.Message}'");
+        }
     }
 
     private void TranslationBox_OnTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -91,24 +136,96 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        Entry.Bounds = ToPhysicalRect(new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height));
+        var actualBounds = GetPhysicalWindowBounds();
+        if (HasSamePositionAndSize(actualBounds, _lastProgrammaticBounds))
+        {
+            return;
+        }
+
+        Entry.Bounds = actualBounds;
         Entry.UpdatedAt = DateTimeOffset.Now;
         EntryChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void SetScreenBounds(Rect bounds)
     {
-        var displayBounds = ToDipRect(bounds);
+        var requestedBounds = new Rect(
+            bounds.X,
+            bounds.Y,
+            Math.Max(bounds.Width, 24),
+            Math.Max(bounds.Height, 18));
+        if (HasSamePositionAndSize(requestedBounds, _lastProgrammaticBounds))
+        {
+            Entry.Bounds = requestedBounds;
+            return;
+        }
+
         _isProgrammaticMove = true;
-        Left = displayBounds.X;
-        Top = displayBounds.Y;
-        Width = Math.Max(displayBounds.Width, 24);
-        Height = Math.Max(displayBounds.Height, 18);
-        TranslationBox.Width = Math.Max(displayBounds.Width - 4, 12);
-        TranslationBox.Height = Math.Max(displayBounds.Height - 2, 10);
-        Entry.Bounds = bounds;
-        FitTextToBounds();
-        _isProgrammaticMove = false;
+        try
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle != 0)
+            {
+                NativeMethods.SetWindowPos(
+                    handle,
+                    0,
+                    (int)Math.Round(requestedBounds.X),
+                    (int)Math.Round(requestedBounds.Y),
+                    (int)Math.Round(requestedBounds.Width),
+                    (int)Math.Round(requestedBounds.Height),
+                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+                _lastProgrammaticBounds = GetPhysicalWindowBounds();
+            }
+            else
+            {
+                var displayBounds = ToDipRect(requestedBounds);
+                Left = displayBounds.X;
+                Top = displayBounds.Y;
+                Width = Math.Max(displayBounds.Width, 24);
+                Height = Math.Max(displayBounds.Height, 18);
+                _lastProgrammaticBounds = requestedBounds;
+            }
+
+            Entry.Bounds = _lastProgrammaticBounds;
+            var displaySize = ToDipRect(new Rect(0, 0, _lastProgrammaticBounds.Width, _lastProgrammaticBounds.Height));
+            TranslationBox.Width = Math.Max(displaySize.Width - 4, 12);
+            TranslationBox.Height = Math.Max(displaySize.Height - 2, 10);
+            FitTextToBounds();
+            Diagnostics.Log($"Overlay moved target={_targetHandle} bounds=[{_lastProgrammaticBounds.X:0.##},{_lastProgrammaticBounds.Y:0.##},{_lastProgrammaticBounds.Width:0.##},{_lastProgrammaticBounds.Height:0.##}]");
+        }
+        finally
+        {
+            Dispatcher.BeginInvoke(() => _isProgrammaticMove = false, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+    }
+
+    private Rect GetPhysicalWindowBounds()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != 0 && NativeMethods.GetWindowRect(handle, out var rect))
+        {
+            return new Rect(
+                rect.Left,
+                rect.Top,
+                Math.Max(0, rect.Right - rect.Left),
+                Math.Max(0, rect.Bottom - rect.Top));
+        }
+
+        return ToPhysicalRect(new Rect(
+            Left,
+            Top,
+            ActualWidth > 0 ? ActualWidth : Width,
+            ActualHeight > 0 ? ActualHeight : Height));
+    }
+
+    private static bool HasSamePositionAndSize(Rect left, Rect right)
+    {
+        return !left.IsEmpty &&
+               !right.IsEmpty &&
+               Math.Abs(left.X - right.X) <= 1 &&
+               Math.Abs(left.Y - right.Y) <= 1 &&
+               Math.Abs(left.Width - right.Width) <= 1 &&
+               Math.Abs(left.Height - right.Height) <= 1;
     }
 
     private void UpdateClickThrough(bool enabled)

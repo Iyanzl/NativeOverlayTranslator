@@ -14,6 +14,7 @@ public sealed class OverlayEntry
     public Rect SourceBounds { get; set; }
     public bool IsTargetAnchored { get; set; }
     public Rect AnchorBounds { get; set; }
+    public bool AnchorUsesClientArea { get; set; }
     public string BackgroundColor { get; set; } = "#EAF7F7F2";
     public string ForegroundColor { get; set; } = "#101418";
     public string BorderColor { get; set; } = "#4A2F3437";
