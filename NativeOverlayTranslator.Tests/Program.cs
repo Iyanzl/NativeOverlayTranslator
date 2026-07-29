@@ -107,13 +107,34 @@ using var noisyBitmap = CreateNoisyTextSample();
 var noisyStyle = ImageOverlayStyleSampler.Sample(noisyBitmap, new Rect(8, 8, 48, 20));
 Assert(ColorDistance(noisyStyle.Foreground, Color.FromArgb(28, 32, 38)) < 70, "colored noise does not dominate text color");
 
+using var jitterBitmap = CreateJitteredColorSample();
+var jitterStyles = Enumerable.Range(-3, 7)
+    .Select(offset => ImageOverlayStyleSampler.Sample(jitterBitmap, new Rect(18 + offset, 8, 104, 24)))
+    .ToList();
+Assert(jitterStyles.All(style => ColorDistance(style.Background, Color.FromArgb(242, 243, 244)) < 28), "OCR bound jitter keeps the background cluster");
+Assert(jitterStyles.All(style => ColorDistance(style.Foreground, Color.FromArgb(30, 34, 40)) < 65), "OCR bound jitter rejects colored edge artifacts");
+Assert(MaxPairwiseColorDistance(jitterStyles.Select(style => style.Foreground)) < 32, "foreground color is stable across OCR bound jitter");
+
+var stabilizer = new ImageOverlayStyleStabilizer();
+var firstStableStyle = new ImageOverlayStyle(Color.White, Color.FromArgb(30, 34, 40), System.Windows.FontWeights.Normal);
+var noisyRepeatedStyle = new ImageOverlayStyle(Color.White, Color.Red, System.Windows.FontWeights.SemiBold);
+var stableStyle = stabilizer.Resolve("Stable color", new Rect(20, 8, 100, 24), firstStableStyle);
+var repeatedStyle = stabilizer.Resolve("Stable color", new Rect(22, 9, 101, 24), noisyRepeatedStyle);
+Assert(repeatedStyle == stableStyle, "nearby repeated OCR bounds reuse the established style");
+var distantStyle = stabilizer.Resolve("Stable color", new Rect(220, 8, 100, 24), noisyRepeatedStyle);
+Assert(distantStyle == noisyRepeatedStyle, "same text at a distant position keeps an independent style");
+stabilizer.Clear();
+var clearedStyle = stabilizer.Resolve("Stable color", new Rect(22, 9, 101, 24), noisyRepeatedStyle);
+Assert(clearedStyle == noisyRepeatedStyle, "loading a new image can clear stabilized styles");
+
 Console.WriteLine("OCR service tests passed.");
 
 static void Assert(bool condition, string message)
 {
     if (!condition)
     {
-        throw new InvalidOperationException(message);
+        Console.Error.WriteLine($"TEST FAILED: {message}");
+        Environment.Exit(1);
     }
 }
 
@@ -152,4 +173,35 @@ static Bitmap CreateNoisyTextSample()
     }
 
     return bitmap;
+}
+
+static Bitmap CreateJitteredColorSample()
+{
+    var bitmap = new Bitmap(150, 42);
+    using var graphics = Graphics.FromImage(bitmap);
+    graphics.Clear(Color.FromArgb(242, 243, 244));
+    using var textBrush = new SolidBrush(Color.FromArgb(30, 34, 40));
+    using var font = new Font("Arial", 15, System.Drawing.FontStyle.Regular, GraphicsUnit.Pixel);
+    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+    graphics.DrawString("Stable color", font, textBrush, 22, 8);
+    using var redBrush = new SolidBrush(Color.FromArgb(220, 30, 45));
+    using var blueBrush = new SolidBrush(Color.FromArgb(25, 80, 220));
+    graphics.FillRectangle(redBrush, 16, 10, 3, 18);
+    graphics.FillRectangle(blueBrush, 121, 10, 3, 18);
+    return bitmap;
+}
+
+static double MaxPairwiseColorDistance(IEnumerable<Color> colors)
+{
+    var list = colors.ToList();
+    var maximum = 0.0;
+    for (var i = 0; i < list.Count; i++)
+    {
+        for (var j = i + 1; j < list.Count; j++)
+        {
+            maximum = Math.Max(maximum, ColorDistance(list[i], list[j]));
+        }
+    }
+
+    return maximum;
 }

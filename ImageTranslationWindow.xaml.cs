@@ -20,6 +20,7 @@ public partial class ImageTranslationWindow : Window
     private readonly ITranslationService _translationService;
     private readonly TranslationMemoryStore _memoryStore;
     private readonly AppSettings _settings;
+    private readonly ImageOverlayStyleStabilizer _styleStabilizer = new();
     private Bitmap? _bitmap;
 
     public ImageTranslationWindow(
@@ -72,6 +73,7 @@ public partial class ImageTranslationWindow : Window
 
         _bitmap?.Dispose();
         _bitmap = new Bitmap(_imagePath);
+        _styleStabilizer.Clear();
         ConfigureInitialWindow(bitmapImage.PixelWidth, bitmapImage.PixelHeight);
         ApplyFitScaleToViewport();
     }
@@ -188,9 +190,10 @@ public partial class ImageTranslationWindow : Window
 
     private void AddInlineOverlay(OcrTextLine line, string translation)
     {
-        var style = _bitmap is null
+        var sampledStyle = _bitmap is null
             ? new ImageOverlayStyle(Color.FromArgb(230, 20, 20, 20), Color.White, FontWeights.Normal)
             : ImageOverlayStyleSampler.Sample(_bitmap, line.Bounds);
+        var style = _styleStabilizer.Resolve(line.Text, line.Bounds, sampledStyle);
         var overlayWidth = EstimateOverlayWidth(line.Bounds, translation);
         var overlayHeight = EstimateOverlayHeight(line.Bounds, translation);
         var box = new System.Windows.Controls.TextBox

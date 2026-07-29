@@ -5,13 +5,17 @@ namespace NativeOverlayTranslator.Services;
 
 public static class ImageOverlayStyleSampler
 {
+    private const int ColorBucketSize = 24;
+    private const double BackgroundMergeDistance = 44;
+    private const double ForegroundMergeDistance = 52;
+    private const double ForegroundContrastThreshold = 48;
+
     public static ImageOverlayStyle Sample(Bitmap bitmap, Rect bounds)
     {
         var rect = Clamp(bitmap, bounds);
-        var expanded = Expand(bitmap, rect, 3);
-        var background = EstimateBackground(bitmap, rect, expanded);
+        var background = EstimateBackground(bitmap, rect);
         var foreground = EstimateForeground(bitmap, rect, background);
-        var fontWeight = EstimateInkDensity(bitmap, rect, background) > 0.08
+        var fontWeight = EstimateInkDensity(bitmap, rect, foreground) > 0.065
             ? FontWeights.SemiBold
             : FontWeights.Normal;
 
@@ -39,25 +43,36 @@ public static class ImageOverlayStyleSampler
         return new Rectangle(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
     }
 
-    private static Color EstimateBackground(Bitmap bitmap, Rectangle rect, Rectangle expanded)
+    private static Color EstimateBackground(Bitmap bitmap, Rectangle rect)
     {
-        var samples = new List<Color>();
-        AddBorderSamples(bitmap, rect, samples);
-
-        var coarse = SampleGrid(bitmap, expanded, 7);
-        if (coarse.Count > 0)
+        var outer = Expand(bitmap, rect, 4);
+        var samples = new List<PixelSample>();
+        var stride = CalculateStride(outer, 5000);
+        for (var y = outer.Top; y < outer.Bottom; y += stride)
         {
-            var median = MedianColor(coarse);
-            samples.AddRange(coarse.Where(color => ColorDistance(color, median) < 45));
+            for (var x = outer.Left; x < outer.Right; x += stride)
+            {
+                if (!rect.Contains(x, y))
+                {
+                    samples.Add(new PixelSample(x, y, bitmap.GetPixel(x, y)));
+                }
+            }
         }
 
-        return samples.Count == 0 ? Color.FromArgb(245, 245, 245) : MedianColor(samples);
+        if (samples.Count < 12)
+        {
+            AddRectangleBorderSamples(bitmap, rect, samples);
+        }
+
+        return samples.Count == 0
+            ? Color.FromArgb(245, 245, 245)
+            : FindDominantCluster(samples, BackgroundMergeDistance, preferTextShape: false);
     }
 
     private static Color EstimateForeground(Bitmap bitmap, Rectangle rect, Color background)
     {
-        var samples = SampleGrid(bitmap, rect, 10)
-            .Where(color => ColorDistance(color, background) >= 55)
+        var samples = SampleRectangle(bitmap, rect, 16000)
+            .Where(sample => ColorDistance(sample.Color, background) >= ForegroundContrastThreshold)
             .ToList();
 
         if (samples.Count == 0)
@@ -65,10 +80,10 @@ public static class ImageOverlayStyleSampler
             return Luminance(background) < 0.48 ? Color.WhiteSmoke : Color.FromArgb(20, 20, 20);
         }
 
-        return MedianColor(samples);
+        return FindDominantCluster(samples, ForegroundMergeDistance, preferTextShape: true);
     }
 
-    private static double EstimateInkDensity(Bitmap bitmap, Rectangle rect, Color background)
+    private static double EstimateInkDensity(Bitmap bitmap, Rectangle rect, Color foreground)
     {
         var total = 0;
         var ink = 0;
@@ -77,7 +92,7 @@ public static class ImageOverlayStyleSampler
             for (var x = rect.Left; x < rect.Right; x++)
             {
                 total++;
-                if (ColorDistance(bitmap.GetPixel(x, y), background) >= 55)
+                if (ColorDistance(bitmap.GetPixel(x, y), foreground) <= ForegroundMergeDistance)
                 {
                     ink++;
                 }
@@ -87,51 +102,71 @@ public static class ImageOverlayStyleSampler
         return total == 0 ? 0 : ink / (double)total;
     }
 
-    private static void AddBorderSamples(Bitmap bitmap, Rectangle rect, List<Color> samples)
+    private static List<PixelSample> SampleRectangle(Bitmap bitmap, Rectangle rect, int maximumSamples)
     {
-        var expanded = Expand(bitmap, rect, 2);
-        var step = Math.Max(1, Math.Min(expanded.Width, expanded.Height) / 8);
-        for (var x = expanded.Left; x < expanded.Right; x += step)
+        var samples = new List<PixelSample>();
+        var stride = CalculateStride(rect, maximumSamples);
+        for (var y = rect.Top; y < rect.Bottom; y += stride)
         {
-            samples.Add(bitmap.GetPixel(x, expanded.Top));
-            samples.Add(bitmap.GetPixel(x, Math.Max(expanded.Top, expanded.Bottom - 1)));
-        }
-
-        for (var y = expanded.Top; y < expanded.Bottom; y += step)
-        {
-            samples.Add(bitmap.GetPixel(expanded.Left, y));
-            samples.Add(bitmap.GetPixel(Math.Max(expanded.Left, expanded.Right - 1), y));
-        }
-    }
-
-    private static List<Color> SampleGrid(Bitmap bitmap, Rectangle rect, int targetSteps)
-    {
-        var samples = new List<Color>();
-        var stepX = Math.Max(1, rect.Width / targetSteps);
-        var stepY = Math.Max(1, rect.Height / targetSteps);
-        for (var y = rect.Top; y < rect.Bottom; y += stepY)
-        {
-            for (var x = rect.Left; x < rect.Right; x += stepX)
+            for (var x = rect.Left; x < rect.Right; x += stride)
             {
-                samples.Add(bitmap.GetPixel(x, y));
+                samples.Add(new PixelSample(x, y, bitmap.GetPixel(x, y)));
             }
         }
 
         return samples;
     }
 
-    private static Color MedianColor(IReadOnlyCollection<Color> samples)
+    private static int CalculateStride(Rectangle rect, int maximumSamples)
     {
-        static int Median(IEnumerable<int> values)
+        var area = Math.Max(1L, (long)rect.Width * rect.Height);
+        return Math.Max(1, (int)Math.Ceiling(Math.Sqrt(area / (double)maximumSamples)));
+    }
+
+    private static void AddRectangleBorderSamples(Bitmap bitmap, Rectangle rect, List<PixelSample> samples)
+    {
+        var step = Math.Max(1, Math.Min(rect.Width, rect.Height) / 12);
+        for (var x = rect.Left; x < rect.Right; x += step)
         {
-            var ordered = values.Order().ToList();
-            return ordered[ordered.Count / 2];
+            samples.Add(new PixelSample(x, rect.Top, bitmap.GetPixel(x, rect.Top)));
+            var bottom = Math.Max(rect.Top, rect.Bottom - 1);
+            samples.Add(new PixelSample(x, bottom, bitmap.GetPixel(x, bottom)));
         }
 
-        return Color.FromArgb(
-            Median(samples.Select(c => (int)c.R)),
-            Median(samples.Select(c => (int)c.G)),
-            Median(samples.Select(c => (int)c.B)));
+        for (var y = rect.Top; y < rect.Bottom; y += step)
+        {
+            samples.Add(new PixelSample(rect.Left, y, bitmap.GetPixel(rect.Left, y)));
+            var right = Math.Max(rect.Left, rect.Right - 1);
+            samples.Add(new PixelSample(right, y, bitmap.GetPixel(right, y)));
+        }
+    }
+
+    private static Color FindDominantCluster(IReadOnlyList<PixelSample> samples, double mergeDistance, bool preferTextShape)
+    {
+        var buckets = samples
+            .GroupBy(sample => ColorBucket.FromColor(sample.Color))
+            .Select(group => new ColorCluster(group.ToList()))
+            .OrderBy(cluster => cluster.Center.R)
+            .ThenBy(cluster => cluster.Center.G)
+            .ThenBy(cluster => cluster.Center.B)
+            .ToList();
+
+        ClusterCandidate? best = null;
+        foreach (var seed in buckets)
+        {
+            var merged = buckets
+                .Where(cluster => ColorDistance(cluster.Center, seed.Center) <= mergeDistance)
+                .SelectMany(cluster => cluster.Samples)
+                .ToList();
+            var candidate = new ClusterCandidate(merged, preferTextShape);
+            if (best is null || candidate.Score > best.Score ||
+                Math.Abs(candidate.Score - best.Score) < 0.001 && candidate.Count > best.Count)
+            {
+                best = candidate;
+            }
+        }
+
+        return best?.Center ?? samples[0].Color;
     }
 
     private static double ColorDistance(Color a, Color b)
@@ -145,6 +180,60 @@ public static class ImageOverlayStyleSampler
     private static double Luminance(Color color)
     {
         return (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255.0;
+    }
+
+    private readonly record struct PixelSample(int X, int Y, Color Color);
+
+    private readonly record struct ColorBucket(int R, int G, int B)
+    {
+        public static ColorBucket FromColor(Color color)
+        {
+            return new ColorBucket(color.R / ColorBucketSize, color.G / ColorBucketSize, color.B / ColorBucketSize);
+        }
+    }
+
+    private sealed class ColorCluster(IReadOnlyList<PixelSample> samples)
+    {
+        public IReadOnlyList<PixelSample> Samples { get; } = samples;
+        public Color Center { get; } = AverageColor(samples);
+    }
+
+    private sealed class ClusterCandidate
+    {
+        public ClusterCandidate(IReadOnlyList<PixelSample> samples, bool preferTextShape)
+        {
+            Count = samples.Count;
+            Center = AverageColor(samples);
+            if (!preferTextShape)
+            {
+                Score = Count;
+                return;
+            }
+
+            var horizontalSpread = samples.Select(sample => sample.X).Distinct().Count();
+            var verticalSpread = samples.Select(sample => sample.Y).Distinct().Count();
+            var shapeFactor = 1.0
+                + Math.Min(1.0, horizontalSpread / 24.0)
+                + Math.Min(0.65, verticalSpread / 16.0);
+            Score = Count * shapeFactor;
+        }
+
+        public int Count { get; }
+        public Color Center { get; }
+        public double Score { get; }
+    }
+
+    private static Color AverageColor(IReadOnlyList<PixelSample> samples)
+    {
+        if (samples.Count == 0)
+        {
+            return Color.Empty;
+        }
+
+        return Color.FromArgb(
+            (int)Math.Round(samples.Average(sample => sample.Color.R)),
+            (int)Math.Round(samples.Average(sample => sample.Color.G)),
+            (int)Math.Round(samples.Average(sample => sample.Color.B)));
     }
 }
 
