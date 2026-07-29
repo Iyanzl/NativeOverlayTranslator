@@ -157,6 +157,93 @@ Assert(
     !OverlayAnchorPolicy.ShouldDisplay(targetValid: false, targetVisible: true, targetMinimized: false, foregroundProcessId: 20, targetProcessId: 20, translatorProcessId: 99),
     "overlays hide when the target handle is invalid");
 
+var lifecycle = new OverlayLifecycleReconciler(missesBeforeRemoval: 2);
+var initialLifecycleChanges = lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open", new Rect(100, 80, 60, 24), 0.99),
+    new TextSourceSnapshot("uia", "toolbar/save", "Save", new Rect(170, 80, 60, 24), 0.99)
+]);
+Assert(initialLifecycleChanges.Count(change => change.Kind == OverlayLifecycleChangeKind.Added) == 2, "new source snapshots add overlays");
+
+var movedLifecycleChanges = lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open file", new Rect(130, 110, 82, 24), 0.99),
+    new TextSourceSnapshot("uia", "toolbar/save", "Save", new Rect(200, 110, 60, 24), 0.99)
+]);
+Assert(movedLifecycleChanges.Count(change => change.Kind == OverlayLifecycleChangeKind.Updated) == 2, "stable source IDs update moved overlays without duplicates");
+Assert(movedLifecycleChanges.Any(change => change.Current?.Text == "Open file"), "stable source IDs preserve identity when source text changes");
+
+var temporaryMissChanges = lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open file", new Rect(130, 110, 82, 24), 0.99)
+]);
+Assert(temporaryMissChanges.Count == 0, "one missed snapshot does not remove an overlay");
+var recoveredLifecycleChanges = lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open file", new Rect(130, 110, 82, 24), 0.99),
+    new TextSourceSnapshot("uia", "toolbar/save", "Save", new Rect(200, 110, 60, 24), 0.99)
+]);
+Assert(recoveredLifecycleChanges.Count == 0, "a temporarily missed source recovers without flicker");
+
+lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open file", new Rect(130, 110, 82, 24), 0.99)
+]);
+var removedLifecycleChanges = lifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "toolbar/open", "Open file", new Rect(130, 110, 82, 24), 0.99)
+]);
+Assert(removedLifecycleChanges.Count(change => change.Kind == OverlayLifecycleChangeKind.Removed) == 1, "a source is removed after consecutive confirmed misses");
+
+var ocrLifecycle = new OverlayLifecycleReconciler(missesBeforeRemoval: 2);
+var anonymousAdded = ocrLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("ocr", "", "Categories", new Rect(90, 440, 130, 32), 0.91)
+]);
+var anonymousTrackingId = anonymousAdded.Single().TrackingId;
+var anonymousMoved = ocrLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("ocr", "", "Categories", new Rect(96, 446, 130, 32), 0.93)
+]);
+Assert(anonymousMoved.Single().Kind == OverlayLifecycleChangeKind.Updated, "nearby OCR text updates an existing anonymous source");
+Assert(anonymousMoved.Single().TrackingId == anonymousTrackingId, "nearby OCR text keeps the same tracking identity");
+var distantAnonymous = ocrLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("ocr", "", "Categories", new Rect(900, 700, 130, 32), 0.93)
+]);
+Assert(distantAnonymous.Count(change => change.Kind == OverlayLifecycleChangeKind.Added) == 1, "distant identical OCR text creates an independent source");
+
+var duplicateLifecycle = new OverlayLifecycleReconciler(missesBeforeRemoval: 2);
+var duplicateChanges = duplicateLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "menu/file", "File", new Rect(10, 10, 40, 20), 0.70),
+    new TextSourceSnapshot("uia", "menu/file", "File", new Rect(12, 10, 40, 20), 0.98)
+]);
+Assert(duplicateChanges.Count == 1, "duplicate stable source snapshots create only one overlay");
+Assert(duplicateChanges.Single().Current?.Confidence == 0.98, "duplicate stable source snapshots keep the highest confidence result");
+var whitespaceOnlyChanges = duplicateLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "menu/file", "  File  ", new Rect(12, 10, 40, 20), 0.98)
+]);
+Assert(whitespaceOnlyChanges.Count == 0, "whitespace-only source changes do not update an overlay");
+duplicateLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "menu/file", "File", new Rect(12, 10, 40, 20), 0.98, IsVisible: false)
+]);
+var hiddenRemovalChanges = duplicateLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("uia", "menu/file", "File", new Rect(12, 10, 40, 20), 0.98, IsVisible: false)
+]);
+Assert(hiddenRemovalChanges.Single().Kind == OverlayLifecycleChangeKind.Removed, "confirmed hidden sources remove their overlays");
+
+var resetLifecycle = new OverlayLifecycleReconciler();
+resetLifecycle.Reconcile(
+[
+    new TextSourceSnapshot("hook", "status", "Ready", new Rect(20, 20, 70, 20))
+]);
+Assert(resetLifecycle.Reset().Single().Kind == OverlayLifecycleChangeKind.Removed, "switching targets can clear all tracked overlays");
+Assert(resetLifecycle.Reset().Count == 0, "reset leaves no tracked overlays");
+
 Console.WriteLine("OCR service tests passed.");
 
 static void Assert(bool condition, string message)

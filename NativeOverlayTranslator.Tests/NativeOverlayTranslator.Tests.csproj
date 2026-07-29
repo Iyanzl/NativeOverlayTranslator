@@ -15,6 +15,7 @@
     <Compile Include="..\Models\HoverMode.cs" Link="Models\HoverMode.cs" />
     <Compile Include="..\Models\OcrEngineKind.cs" Link="Models\OcrEngineKind.cs" />
     <Compile Include="..\Models\OcrTextLine.cs" Link="Models\OcrTextLine.cs" />
+    <Compile Include="..\Models\TextSourceSnapshot.cs" Link="Models\TextSourceSnapshot.cs" />
     <Compile Include="..\Services\OcrFailureDetector.cs" Link="Services\OcrFailureDetector.cs" />
     <Compile Include="..\Services\HoverPerformancePolicy.cs" Link="Services\HoverPerformancePolicy.cs" />
     <Compile Include="..\Services\HoverTextSelector.cs" Link="Services\HoverTextSelector.cs" />
@@ -22,6 +23,7 @@
     <Compile Include="..\Services\ImageOverlayStyleSampler.cs" Link="Services\ImageOverlayStyleSampler.cs" />
     <Compile Include="..\Services\ImageOverlayStyleStabilizer.cs" Link="Services\ImageOverlayStyleStabilizer.cs" />
     <Compile Include="..\Services\OverlayAnchorPolicy.cs" Link="Services\OverlayAnchorPolicy.cs" />
+    <Compile Include="..\Services\OverlayLifecycleReconciler.cs" Link="Services\OverlayLifecycleReconciler.cs" />
     <Compile Include="..\Services\TextTranslationFilter.cs" Link="Services\TextTranslationFilter.cs" />
   </ItemGroup>
 
